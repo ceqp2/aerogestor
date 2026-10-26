@@ -23,7 +23,7 @@ export class AuthController {
   async login(@Body() dto: LoginDto, @Req() req: ReqAuth, @Res({ passthrough: true }) res: Response) {
     const r = await this.auth.login(dto.email, dto.senha, meta(req));
     gravarCookiesSessao(res, r.token, r.csrf);
-    return { mfaPendente: r.mfaPendente };
+    return { mfaPendente: r.mfaPendente, csrfToken: r.csrf };
   }
 
   @SessaoParcial()
@@ -33,7 +33,7 @@ export class AuthController {
   async verificarMfa(@Body() dto: CodigoMfaDto, @Req() req: ReqAuth, @Res({ passthrough: true }) res: Response) {
     const r = await this.auth.verificarMfa(req.sessaoParcial!.id, dto.codigo, meta(req));
     gravarCookiesSessao(res, r.token, r.csrf);
-    return { ok: true };
+    return { ok: true, csrfToken: r.csrf };
   }
 
   @SessaoParcial()

@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
-import { api, ApiError, registrarNaoAutenticado } from '@/lib/api';
+import { api, ApiError, limparCsrfToken, registrarNaoAutenticado } from '@/lib/api';
 
 export type Perfil = 'COMANDANTE' | 'ADMIN' | 'CHEFE' | 'AUXILIAR' | 'GESTOR';
 
@@ -14,7 +14,7 @@ export interface UnidadeAcesso {
 }
 
 export interface Me {
-  usuario: { id: string; nome: string; email: string; postoGraduacao?: string | null; mfaAtivo: boolean };
+  usuario: { id: string; nome: string; nomeGuerra?: string | null; email: string; postoGraduacao?: string | null; mfaAtivo: boolean };
   mfaPendente: boolean;
   mfaObrigatorio: boolean;
   unidades: UnidadeAcesso[];
@@ -77,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       recarregar: () => q.refetch(),
       sair: async () => {
         await api.post('/auth/logout').catch(() => undefined);
+        limparCsrfToken();
         qc.clear();
         qc.setQueryData(['me'], null);
         setSemSessao(true);

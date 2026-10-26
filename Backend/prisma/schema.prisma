@@ -38,6 +38,7 @@ model Unidade {
 model Usuario {
   id               String    @id @default(uuid()) @db.Uuid
   nome             String
+  nomeGuerra       String?
   email            String    @unique
   postoGraduacao   String?
   senhaHash        String?

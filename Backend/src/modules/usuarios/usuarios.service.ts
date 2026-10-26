@@ -4,6 +4,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { AuditoriaService } from '../../common/auditoria.service';
 import { Ctx } from '../../common/contexto';
 import { hashToken, novoToken } from '../../common/crypto';
+import { hashSenha, validarPoliticaSenha } from '../auth/senha';
 import { env } from '../../config/env';
 import { CriarUsuarioDto } from './usuarios.dto';
 
@@ -43,6 +44,7 @@ export class UsuariosService {
     return vinculos.map((v) => ({
       id: v.usuario.id,
       nome: v.usuario.nome,
+      nomeGuerra: v.usuario.nomeGuerra,
       email: v.usuario.email,
       postoGraduacao: v.usuario.postoGraduacao,
       perfil: v.perfil,
@@ -98,10 +100,27 @@ export class UsuariosService {
       if (v) throw new BadRequestException('Usuário já possui vínculo nesta unidade');
       if (!existente.ativo) throw new BadRequestException('Conta desativada; solicite reativação ao administrador');
     }
+    let senhaHash: string | undefined;
+    if (dto.senha) {
+      const nomeCompleto = dto.nome.trim();
+      validarPoliticaSenha(dto.senha, email, nomeCompleto);
+      senhaHash = await hashSenha(dto.senha);
+    }
     return this.prisma.$transaction(async (tx) => {
       const usuario =
         existente ??
-        (await tx.usuario.create({ data: { nome: dto.nome.trim(), email, postoGraduacao: dto.postoGraduacao?.trim() || null } }));
+        (await tx.usuario.create({
+          data: {
+            nome: dto.nome.trim(),
+            nomeGuerra: dto.nomeGuerra?.trim() || null,
+            email,
+            postoGraduacao: dto.postoGraduacao?.trim() || null,
+            ...(senhaHash ? { senhaHash } : {}),
+          },
+        }));
+      if (existente && dto.nomeGuerra?.trim()) {
+        await tx.usuario.update({ where: { id: existente.id }, data: { nomeGuerra: dto.nomeGuerra.trim() } });
+      }
       await tx.vinculoUnidadePerfil.create({
         data: { usuarioId: usuario.id, unidadeId: ctx.unidadeId, perfil: dto.perfil, criadoPor: ctx.usuarioId },
       });
@@ -111,7 +130,7 @@ export class UsuariosService {
         entidadeId: usuario.id,
         depois: { nome: usuario.nome, email, perfil: dto.perfil },
       });
-      const convite = usuario.senhaHash ? null : await this.gerarConviteTx(tx, usuario.id, email, ctx);
+      const convite = (senhaHash || usuario.senhaHash) ? null : await this.gerarConviteTx(tx, usuario.id, email, ctx);
       return { id: usuario.id, convite };
     });
   }

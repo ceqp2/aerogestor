@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Copy, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Carregando, ErroCarga, useToast, Vazio } from '@/components/feedback';
@@ -46,26 +46,73 @@ export default function AdministracaoPage() {
   );
 }
 
-function LinkConvite({ link, aoFechar }: { link: { link: string; expiraEmHoras: number } | null; aoFechar: () => void }) {
-  const toast = useToast();
+
+function NovoUsuarioModal({ aberto, aoFechar, perfisCriaveis, aoSalvar }: { aberto: boolean; aoFechar: () => void; perfisCriaveis: string[]; aoSalvar: (v: any) => Promise<void> }) {
+  const [erro, setErro] = useState<string | null>(null);
+  const [campos, setCampos] = useState({ nome: '', nomeGuerra: '', postoGraduacao: '', email: '', perfil: perfisCriaveis[0] ?? '', senha: '', confirmarSenha: '' });
+  const [enviando, setEnviando] = useState(false);
+
+  const resetar = () => { setCampos({ nome: '', nomeGuerra: '', postoGraduacao: '', email: '', perfil: perfisCriaveis[0] ?? '', senha: '', confirmarSenha: '' }); setErro(null); };
+
+  const enviar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErro(null);
+    if (!campos.nome.trim()) return setErro('Nome completo é obrigatório');
+    if (!campos.nomeGuerra.trim()) return setErro('Nome de guerra é obrigatório');
+    if (!campos.email.trim()) return setErro('E-mail é obrigatório');
+    if (!campos.perfil) return setErro('Perfil é obrigatório');
+    if (!campos.senha) return setErro('Senha temporária é obrigatória');
+    if (campos.senha !== campos.confirmarSenha) return setErro('As senhas não coincidem');
+    setEnviando(true);
+    try {
+      await aoSalvar({ nome: campos.nome.trim(), nomeGuerra: campos.nomeGuerra.trim(), postoGraduacao: campos.postoGraduacao.trim() || undefined, email: campos.email.trim(), perfil: campos.perfil, senha: campos.senha });
+      resetar();
+      aoFechar();
+    } catch (ex: any) {
+      setErro(ex?.message ?? 'Erro ao salvar');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
   return (
-    <Modal aberto={!!link} aoFechar={aoFechar} titulo="Link de acesso gerado" rodape={<Botao onClick={aoFechar}>Concluir</Botao>}>
-      <div className="space-y-3">
-        <Aviso tom="atencao">Entregue este link somente ao próprio usuário, por canal seguro. Ele é de uso único, expira em {link?.expiraEmHoras} h e não será exibido novamente.</Aviso>
-        <div className="flex gap-2">
-          <input readOnly value={link?.link ?? ''} className="min-h-11 flex-1 rounded-lg border border-borda bg-fundo px-3 text-xs" aria-label="Link de convite" onFocus={(e) => e.target.select()} />
-          <Botao
-            variante="secundario"
-            icone={<Copy className="size-4" />}
-            onClick={() => {
-              navigator.clipboard?.writeText(link?.link ?? '');
-              toast.sucesso('Link copiado');
-            }}
-          >
-            Copiar
-          </Botao>
+    <Modal aberto={aberto} aoFechar={() => { resetar(); aoFechar(); }} titulo="Novo usuário" rodape={<><Botao variante="secundario" onClick={() => { resetar(); aoFechar(); }}>Cancelar</Botao><Botao type="submit" form="form-novo-usuario" carregando={enviando}>Salvar</Botao></>}>
+      <form id="form-novo-usuario" onSubmit={enviar} noValidate className="space-y-3">
+        {erro && <Aviso tom="perigo">{erro}</Aviso>}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <label className="mb-1 block text-sm font-medium">Nome completo *</label>
+            <input className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.nome} onChange={e => setCampos(p => ({ ...p, nome: e.target.value }))} />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Nome de guerra *</label>
+            <input className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.nomeGuerra} onChange={e => setCampos(p => ({ ...p, nomeGuerra: e.target.value }))} />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Posto/graduação</label>
+            <input className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.postoGraduacao} onChange={e => setCampos(p => ({ ...p, postoGraduacao: e.target.value }))} />
+          </div>
+          <div className="col-span-2">
+            <label className="mb-1 block text-sm font-medium">E-mail institucional *</label>
+            <input type="email" className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.email} onChange={e => setCampos(p => ({ ...p, email: e.target.value }))} />
+          </div>
+          <div className="col-span-2">
+            <label className="mb-1 block text-sm font-medium">Perfil *</label>
+            <select className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.perfil} onChange={e => setCampos(p => ({ ...p, perfil: e.target.value }))}>
+              {perfisCriaveis.map(p => <option key={p} value={p}>{PERFIS[p as keyof typeof PERFIS] ?? p}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Senha temporária *</label>
+            <input type="password" autoComplete="new-password" className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.senha} onChange={e => setCampos(p => ({ ...p, senha: e.target.value }))} />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium">Confirmar senha *</label>
+            <input type="password" autoComplete="new-password" className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.confirmarSenha} onChange={e => setCampos(p => ({ ...p, confirmarSenha: e.target.value }))} />
+          </div>
         </div>
-      </div>
+        <p className="text-xs text-tinta-suave">Política de senha: mínimo 12 caracteres com ao menos 3 entre maiúsculas, minúsculas, números e símbolos.</p>
+      </form>
     </Modal>
   );
 }
@@ -96,8 +143,9 @@ function Usuarios() {
       <Cartao titulo="Usuários da unidade" acoes={perfisCriaveis.length > 0 && <Botao pequeno icone={<Plus className="size-4" />} onClick={() => setCriar(true)}>Novo usuário</Botao>}>
         <div className="mb-3">
           <Aviso>
-            Sem cadastro público: contas são criadas por convite. {perfil === 'AUXILIAR' && 'Seu perfil cria apenas contas de gestor.'}
-            {perfil === 'CHEFE' && 'Seu perfil cria e desativa auxiliares e gestores.'} Usuário com histórico é desativado, nunca apagado; a desativação revoga sessões e preserva designações.
+            {perfil === 'AUXILIAR' && 'Seu perfil cria apenas contas de gestor. '}
+            {perfil === 'CHEFE' && 'Seu perfil cria e desativa auxiliares e gestores. '}
+            Usuário com histórico é desativado, nunca apagado; a desativação revoga sessões e preserva designações.
           </Aviso>
         </div>
         <Tabela
@@ -106,14 +154,14 @@ function Usuarios() {
           chave={(u) => u.id}
           vazio={<Vazio titulo="Nenhum usuário" />}
           colunas={[
-            { titulo: 'Nome', principal: true, render: (u) => <div><p className="font-medium">{u.postoGraduacao} {u.nome}</p><p className="text-xs text-tinta-suave">{u.email}</p></div> },
+            { titulo: 'Nome', principal: true, render: (u) => <div><p className="font-medium">{u.postoGraduacao} {u.nomeGuerra ?? u.nome}</p><p className="text-xs text-tinta-suave">{u.nome} · {u.email}</p></div> },
             { titulo: 'Perfil', render: (u) => PERFIS[u.perfil] },
             {
               titulo: 'Situação',
               render: (u) => (
                 <span className="flex flex-wrap gap-1">
                   {u.vinculoAtivo && u.contaAtiva ? <Selo tom="ok">Ativo</Selo> : <Selo tom="neutro">Desativado</Selo>}
-                  {!u.senhaDefinida && <Selo tom="atencao">Convite pendente</Selo>}
+                  {!u.senhaDefinida && <Selo tom="atencao">Sem senha</Selo>}
                   {u.mfaAtivo && <Selo tom="info">MFA</Selo>}
                 </span>
               ),
@@ -127,7 +175,7 @@ function Usuarios() {
                     {u.vinculoAtivo ? (
                       <>
                         <Botao pequeno variante="secundario" onClick={() => executar(async () => setLink(await api.post(`/usuarios/${u.id}/link-acesso`)), 'Link gerado')}>
-                          {u.senhaDefinida ? 'Link de redefinição' : 'Novo convite'}
+                          Link de redefinição de senha
                         </Botao>
                         <Botao pequeno variante="secundario" onClick={() => executar(() => api.post(`/usuarios/${u.id}/revogar-sessoes`), 'Sessões revogadas')}>
                           Revogar sessões
@@ -159,21 +207,14 @@ function Usuarios() {
           ]}
         />
       </Cartao>
-      <FormularioModal
+      <NovoUsuarioModal
         aberto={criar}
         aoFechar={() => setCriar(false)}
-        titulo="Novo usuário (convite)"
-        campos={[
-          { nome: 'nome', rotulo: 'Nome completo', obrigatorio: true },
-          { nome: 'postoGraduacao', rotulo: 'Posto/graduação', meia: true },
-          { nome: 'email', rotulo: 'E-mail institucional', tipo: 'email', obrigatorio: true, meia: true },
-          { nome: 'perfil', rotulo: 'Perfil', tipo: 'select', obrigatorio: true, opcoes: perfisCriaveis.map((p) => ({ value: p, label: PERFIS[p] })) },
-        ]}
-        aoEnviar={async (v) => {
-          const r = await api.post<{ convite: { link: string; expiraEmHoras: number } | null }>('/usuarios', v);
+        perfisCriaveis={perfisCriaveis}
+        aoSalvar={async (v) => {
+          await api.post('/usuarios', v);
           await q.refetch();
-          if (r.convite) setLink(r.convite);
-          else toast.sucesso('Vínculo criado para usuário existente');
+          toast.sucesso('Usuário criado com sucesso');
         }}
       />
       <FormularioModal
@@ -212,7 +253,15 @@ function Usuarios() {
           );
         }}
       />
-      <LinkConvite link={link} aoFechar={() => setLink(null)} />
+      {link && (
+        <Modal aberto={!!link} aoFechar={() => setLink(null)} titulo="Link de redefinição de senha" rodape={<Botao onClick={() => setLink(null)}>Fechar</Botao>}>
+          <p className="mb-2 text-sm">Envie este link para o usuário. Expira em <strong>{link.expiraEmHoras}h</strong>.</p>
+          <div className="flex items-center gap-2 rounded-lg border border-borda bg-fundo-alt p-3">
+            <code className="flex-1 break-all text-xs">{link.link}</code>
+            <Botao pequeno variante="secundario" onClick={() => { navigator.clipboard.writeText(link.link); toast.sucesso('Link copiado'); }}>Copiar</Botao>
+          </div>
+        </Modal>
+      )}
     </>
   );
 }

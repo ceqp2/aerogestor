@@ -6,6 +6,9 @@ export class CriarUsuarioDto {
   @IsString() @IsNotEmpty() @MaxLength(150)
   nome: string;
 
+  @IsOptional() @IsString() @MaxLength(60)
+  nomeGuerra?: string;
+
   @IsEmail() @MaxLength(200)
   email: string;
 
@@ -14,6 +17,9 @@ export class CriarUsuarioDto {
 
   @IsEnum(Perfil)
   perfil: Perfil;
+
+  @IsOptional() @IsString() @MinLength(12) @MaxLength(128)
+  senha?: string;
 }
 
 export class MotivoDto {

@@ -13,7 +13,7 @@ export class ApiError extends Error {
   }
 }
 
-const BASE = '/api/v1';
+const BASE = (import.meta.env.VITE_API_BASE_URL ?? '') + '/api/v1';
 
 function lerCookie(nome: string) {
   return document.cookie
@@ -43,7 +43,7 @@ async function requisicao<T>(metodo: Metodo, caminho: string, corpo?: unknown, o
   }
   let r: Response;
   try {
-    r = await fetch(BASE + caminho, { method: metodo, headers, body, credentials: 'same-origin' });
+    r = await fetch(BASE + caminho, { method: metodo, headers, body, credentials: 'include' });
   } catch {
     throw new ApiError(0, 'Não foi possível contactar o servidor. Verifique sua conexão.');
   }

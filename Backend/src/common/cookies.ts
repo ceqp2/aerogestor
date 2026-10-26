@@ -6,7 +6,8 @@ export const COOKIE_CSRF = 'aerogest_csrf';
 export const HEADER_CSRF = 'x-csrf-token';
 
 function base(maxAgeMs: number): CookieOptions {
-  return { secure: env().cookieSecure, sameSite: 'strict', path: '/', maxAge: maxAgeMs };
+  const cfg = env();
+  return { secure: cfg.cookieSecure, sameSite: cfg.cookieSecure ? ('none' as const) : ('strict' as const), path: '/', maxAge: maxAgeMs };
 }
 
 export function gravarCookiesSessao(res: Response, token: string, csrf: string) {

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+storage/
+.local/
+coverage/
+*.log
+tsconfig.tsbuildinfo
+openapi.json
+deploy/.env.producao

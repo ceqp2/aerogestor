@@ -1,0 +1,92 @@
+@import 'tailwindcss';
+
+/*
+ * Paleta proposta (sem alegação de padrão oficial FAB):
+ * branco #FFFFFF; fundo #F5F9FD; azul claro #D9ECFA; azul de ação #246A9E;
+ * azul escuro (texto) #163A59; borda #DFE8F0; verde #16794A; âmbar #925C00; vermelho #B42318.
+ * Azul claro apenas em fundos (contraste insuficiente como texto).
+ */
+@theme {
+  --color-fundo: #f5f9fd;
+  --color-azul-claro: #d9ecfa;
+  --color-azul-claro-2: #eef6fd;
+  --color-acao: #246a9e;
+  --color-acao-escuro: #1b5480;
+  --color-tinta: #163a59;
+  --color-tinta-suave: #4a6680;
+  --color-borda: #dfe8f0;
+  --color-ok: #16794a;
+  --color-ok-fundo: #e7f4ec;
+  --color-atencao: #925c00;
+  --color-atencao-fundo: #fdf3e1;
+  --color-perigo: #b42318;
+  --color-perigo-fundo: #fdecea;
+  --font-sans: 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --shadow-cartao: 0 1px 2px rgb(22 58 89 / 0.06), 0 1px 3px rgb(22 58 89 / 0.04);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-fundo);
+  color: var(--color-tinta);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-size: 15px;
+}
+
+/* Foco sempre visível para navegação por teclado */
+:focus-visible {
+  outline: 3px solid var(--color-acao);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* FullCalendar — ajustes à paleta */
+.fc {
+  --fc-border-color: var(--color-borda);
+  --fc-button-bg-color: #fff;
+  --fc-button-text-color: var(--color-tinta);
+  --fc-button-border-color: var(--color-borda);
+  --fc-button-hover-bg-color: var(--color-azul-claro-2);
+  --fc-button-hover-border-color: var(--color-borda);
+  --fc-button-active-bg-color: var(--color-azul-claro);
+  --fc-button-active-border-color: var(--color-acao);
+  --fc-today-bg-color: var(--color-azul-claro-2);
+  --fc-event-bg-color: var(--color-acao);
+  --fc-event-border-color: var(--color-acao);
+  font-size: 0.85rem;
+}
+.fc .fc-toolbar-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.fc .fc-button {
+  text-transform: capitalize;
+  font-weight: 500;
+  padding: 0.35rem 0.7rem;
+}
+.fc .fc-button:focus {
+  box-shadow: none;
+}
+@media (max-width: 640px) {
+  .fc .fc-toolbar {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}

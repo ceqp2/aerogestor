@@ -1,0 +1,22 @@
+# Banco de desenvolvimento isolado. Uso: docker compose -f deploy/docker-compose.dev.yml --env-file .env up -d
+name: aerogest-dev
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aerogest
+      POSTGRES_USER: aerogest
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
+      TZ: UTC
+    ports:
+      - "127.0.0.1:${DB_HOST_PORT:-5439}:5432"   # exposto apenas na interface local
+    volumes:
+      - aerogest_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aerogest -d aerogest"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+volumes:
+  aerogest_pgdata:

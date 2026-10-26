@@ -1,0 +1,1219 @@
+// AEROGEST GSD — modelo de dados
+// Convenções:
+//  - valores monetários: Decimal(18,2); quantidades: Decimal(18,4) — nunca ponto flutuante
+//  - instantes: timestamptz (UTC); datas civis (vigência, prazos): @db.Date, sem fuso
+//  - toda entidade de negócio carrega unidadeId; relações são validadas na mesma unidade pelo serviço
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── Fundação ─────────────────────────────
+
+enum Perfil {
+  COMANDANTE
+  ADMIN
+  CHEFE
+  AUXILIAR
+  GESTOR
+}
+
+model Unidade {
+  id        String   @id @default(uuid()) @db.Uuid
+  sigla     String   @unique
+  nome      String
+  nomeSecao String   @default("Secretaria de Aquisições")
+  cidade    String?
+  ativo     Boolean  @default(true)
+  criadoEm  DateTime @default(now()) @db.Timestamptz(3)
+
+  vinculos VinculoUnidadePerfil[]
+}
+
+model Usuario {
+  id               String    @id @default(uuid()) @db.Uuid
+  nome             String
+  email            String    @unique
+  postoGraduacao   String?
+  senhaHash        String?
+  ativo            Boolean   @default(true)
+  mfaSecretEnc     String?
+  mfaAtivo         Boolean   @default(false)
+  tentativasFalhas Int       @default(0)
+  bloqueadoAte     DateTime? @db.Timestamptz(3)
+  ultimoLogin      DateTime? @db.Timestamptz(3)
+  criadoEm         DateTime  @default(now()) @db.Timestamptz(3)
+  desativadoEm     DateTime? @db.Timestamptz(3)
+  desativadoMotivo String?
+
+  vinculos             VinculoUnidadePerfil[]
+  sessoes              Sessao[]
+  designacoes          Designacao[]
+  notificacoes         Notificacao[]
+  processosResponsavel Processo[]             @relation("ProcessoResponsavel")
+}
+
+model VinculoUnidadePerfil {
+  id        String   @id @default(uuid()) @db.Uuid
+  usuarioId String   @db.Uuid
+  unidadeId String   @db.Uuid
+  perfil    Perfil
+  ativo     Boolean  @default(true)
+  criadoEm  DateTime @default(now()) @db.Timestamptz(3)
+  criadoPor String?  @db.Uuid
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  unidade Unidade @relation(fields: [unidadeId], references: [id])
+
+  @@unique([usuarioId, unidadeId])
+}
+
+/// Concessão explícita e rastreável de suporte entre unidades (administrador).
+model ConcessaoSuporte {
+  id           String    @id @default(uuid()) @db.Uuid
+  usuarioId    String    @db.Uuid
+  unidadeId    String    @db.Uuid
+  motivo       String
+  concedidoPor String    @db.Uuid
+  inicio       DateTime  @default(now()) @db.Timestamptz(3)
+  fim          DateTime  @db.Timestamptz(3)
+  revogadoEm   DateTime? @db.Timestamptz(3)
+}
+
+model Sessao {
+  id          String    @id @default(uuid()) @db.Uuid
+  tokenHash   String    @unique
+  csrfHash    String
+  usuarioId   String    @db.Uuid
+  unidadeId   String?   @db.Uuid
+  mfaPendente Boolean   @default(false)
+  criadaEm    DateTime  @default(now()) @db.Timestamptz(3)
+  ultimoUso   DateTime  @default(now()) @db.Timestamptz(3)
+  expiraEm    DateTime  @db.Timestamptz(3)
+  revogadaEm  DateTime? @db.Timestamptz(3)
+  ip          String?
+  userAgent   String?
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([usuarioId])
+}
+
+enum TipoConvite {
+  CONVITE
+  RECUPERACAO
+}
+
+model Convite {
+  id        String      @id @default(uuid()) @db.Uuid
+  tipo      TipoConvite @default(CONVITE)
+  tokenHash String      @unique
+  email     String
+  usuarioId String      @db.Uuid
+  criadoPor String?     @db.Uuid
+  criadoEm  DateTime    @default(now()) @db.Timestamptz(3)
+  expiraEm  DateTime    @db.Timestamptz(3)
+  usadoEm   DateTime?   @db.Timestamptz(3)
+}
+
+/// Append-only: UPDATE/DELETE bloqueados por trigger na migration.
+model RegistroAuditoria {
+  id            BigInt   @id @default(autoincrement())
+  criadoEm      DateTime @default(now()) @db.Timestamptz(3)
+  unidadeId     String?  @db.Uuid
+  usuarioId     String?  @db.Uuid
+  usuarioNome   String?
+  acao          String
+  entidade      String
+  entidadeId    String?
+  antes         Json?
+  depois        Json?
+  motivo        String?
+  correlationId String?
+  ip            String?
+
+  @@index([entidade, entidadeId])
+  @@index([unidadeId, criadoEm])
+}
+
+/// Regras normativas/gerenciais versionadas (fonte, vigência, aprovador). unidadeId nulo = global.
+model ParametroNormativo {
+  id                String    @id @default(uuid()) @db.Uuid
+  unidadeId         String?   @db.Uuid
+  chave             String
+  descricao         String
+  valor             Json
+  fonte             String
+  vigenciaInicio    DateTime  @db.Date
+  vigenciaFim       DateTime? @db.Date
+  aprovador         String?
+  pendenteValidacao Boolean   @default(true)
+  criadoEm          DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([chave])
+}
+
+// ───────────────────────────── Planejamento ─────────────────────────────
+
+enum Prioridade {
+  BAIXA
+  MEDIA
+  ALTA
+  URGENTE
+}
+
+enum StatusDemanda {
+  RASCUNHO
+  EM_ANALISE
+  APROVADA
+  REJEITADA
+  ATENDIDA
+}
+
+model Demanda {
+  id                String        @id @default(uuid()) @db.Uuid
+  unidadeId         String        @db.Uuid
+  exercicio         Int
+  titulo            String
+  descricao         String
+  setorRequisitante String
+  prioridade        Prioridade    @default(MEDIA)
+  valorEstimado     Decimal       @default(0) @db.Decimal(18, 2)
+  status            StatusDemanda @default(RASCUNHO)
+  numeroDfd         String?
+  itemPca           String?
+  dataNecessidade   DateTime?     @db.Date
+  processoId        String?       @db.Uuid
+  criadoPor         String        @db.Uuid
+  criadoEm          DateTime      @default(now()) @db.Timestamptz(3)
+  atualizadoEm      DateTime      @updatedAt @db.Timestamptz(3)
+
+  processo  Processo?              @relation(fields: [processoId], references: [id])
+  alocacoes AlocacaoOrcamentaria[]
+}
+
+model PropostaOrcamentaria {
+  id        String   @id @default(uuid()) @db.Uuid
+  unidadeId String   @db.Uuid
+  exercicio Int
+  titulo    String
+  criadoEm  DateTime @default(now()) @db.Timestamptz(3)
+
+  versoes VersaoProposta[]
+
+  @@unique([unidadeId, exercicio, titulo])
+}
+
+model VersaoProposta {
+  id         String   @id @default(uuid()) @db.Uuid
+  propostaId String   @db.Uuid
+  versao     Int
+  status     String   @default("RASCUNHO") // RASCUNHO | ENVIADA | SUBSTITUIDA
+  itens      Json // [{descricao, naturezaDespesa, valor, demandaId?}]
+  total      Decimal  @db.Decimal(18, 2)
+  observacao String?
+  criadoPor  String   @db.Uuid
+  criadoEm   DateTime @default(now()) @db.Timestamptz(3)
+
+  proposta PropostaOrcamentaria @relation(fields: [propostaId], references: [id])
+
+  @@unique([propostaId, versao])
+}
+
+// ───────────────────────────── Processos ─────────────────────────────
+
+enum FormaContratacao {
+  LICITACAO
+  CONTRATACAO_DIRETA
+  UTILIZACAO_ATA_PARTICIPANTE
+  ADESAO_ATA
+}
+
+enum Modalidade {
+  PREGAO
+  CONCORRENCIA
+  CONCURSO
+  LEILAO
+  DIALOGO_COMPETITIVO
+}
+
+enum HipoteseDireta {
+  DISPENSA
+  INEXIGIBILIDADE
+}
+
+enum TipoObjeto {
+  MATERIAL
+  SERVICO
+  SERVICO_CONTINUO
+  OBRA_SERVICO_ENGENHARIA
+  TIC
+  OUTRO
+}
+
+enum EtapaProcesso {
+  A_INICIAR
+  PLANEJAMENTO
+  INSTRUCAO
+  ANALISE
+  SELECAO_FORNECEDOR
+  FORMALIZACAO
+  FINALIZADO
+}
+
+enum SituacaoProcesso {
+  ATIVO
+  SUSPENSO
+  CANCELADO
+}
+
+model Processo {
+  id                    String           @id @default(uuid()) @db.Uuid
+  unidadeId             String           @db.Uuid
+  nup                   String?
+  numeroInterno         String
+  exercicio             Int
+  objeto                String
+  tipoObjeto            TipoObjeto
+  origemDemanda         String?
+  setorRequisitante     String?
+  prioridade            Prioridade       @default(MEDIA)
+  valorEstimado         Decimal          @default(0) @db.Decimal(18, 2)
+  formaContratacao      FormaContratacao
+  modalidade            Modalidade?
+  hipoteseDireta        HipoteseDireta?
+  procedimentoAuxiliar  String?
+  fundamentoLegal       String?
+  etapa                 EtapaProcesso    @default(A_INICIAR)
+  situacao              SituacaoProcesso @default(ATIVO)
+  justificativaSituacao String?
+  responsavelId         String?          @db.Uuid
+  ataId                 String?          @db.Uuid
+  dataInicioPrevista    DateTime?        @db.Date
+  dataConclusaoPrevista DateTime?        @db.Date
+  dataInicioReal        DateTime?        @db.Date
+  dataConclusaoReal     DateTime?        @db.Date
+  modeloChecklistId     String?          @db.Uuid
+  criadoPor             String           @db.Uuid
+  criadoEm              DateTime         @default(now()) @db.Timestamptz(3)
+  atualizadoEm          DateTime         @updatedAt @db.Timestamptz(3)
+
+  responsavel Usuario?               @relation("ProcessoResponsavel", fields: [responsavelId], references: [id])
+  ata         Ata?                   @relation(fields: [ataId], references: [id])
+  itens       ItemProcesso[]
+  checklist   ChecklistItem[]
+  contratos   ContratoInstrumento[]
+  demandas    Demanda[]
+  riscos      Risco[]
+  alocacoes   AlocacaoOrcamentaria[]
+
+  @@unique([unidadeId, numeroInterno])
+  @@index([unidadeId, exercicio])
+}
+
+model ItemProcesso {
+  id                    String  @id @default(uuid()) @db.Uuid
+  processoId            String  @db.Uuid
+  numero                Int
+  descricao             String
+  codigoCatalogo        String?
+  tipoCatalogo          String? // CATMAT | CATSER
+  unidadeMedida         String
+  quantidade            Decimal @db.Decimal(18, 4)
+  valorUnitarioEstimado Decimal @default(0) @db.Decimal(18, 2)
+
+  processo Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+}
+
+model ModeloChecklist {
+  id               String           @id @default(uuid()) @db.Uuid
+  unidadeId        String?          @db.Uuid
+  nome             String
+  formaContratacao FormaContratacao
+  tipoObjeto       TipoObjeto?
+  versao           Int
+  ativo            Boolean          @default(true)
+  fonte            String?
+  criadoEm         DateTime         @default(now()) @db.Timestamptz(3)
+
+  itens ModeloChecklistItem[]
+}
+
+model ModeloChecklistItem {
+  id                  String        @id @default(uuid()) @db.Uuid
+  modeloId            String        @db.Uuid
+  ordem               Int
+  titulo              String
+  descricao           String?
+  etapa               EtapaProcesso
+  critico             Boolean       @default(false)
+  exigeEvidencia      Boolean       @default(false)
+  exigeRevisaoNA      Boolean       @default(true)
+  referenciaNormativa String?
+  aplicabilidade      String? // texto de orientação
+
+  modelo ModeloChecklist @relation(fields: [modeloId], references: [id], onDelete: Cascade)
+}
+
+enum EstadoChecklist {
+  PENDENTE
+  EM_ANDAMENTO
+  CONCLUIDO
+  NAO_APLICAVEL
+  DEVOLVIDO
+}
+
+model ChecklistItem {
+  id                  String          @id @default(uuid()) @db.Uuid
+  processoId          String          @db.Uuid
+  modeloItemId        String?         @db.Uuid
+  ordem               Int
+  titulo              String
+  etapa               EtapaProcesso
+  critico             Boolean         @default(false)
+  exigeEvidencia      Boolean         @default(false)
+  exigeRevisaoNA      Boolean         @default(true)
+  referenciaNormativa String?
+  estado              EstadoChecklist @default(PENDENTE)
+  justificativaNA     String?
+  naRevisadoPor       String?         @db.Uuid
+  naRevisadoEm        DateTime?       @db.Timestamptz(3)
+  observacao          String?
+  responsavelId       String?         @db.Uuid
+  atribuidoGestorId   String?         @db.Uuid
+  prazo               DateTime?       @db.Date
+  concluidoEm         DateTime?       @db.Timestamptz(3)
+  concluidoPor        String?         @db.Uuid
+  atualizadoEm        DateTime        @updatedAt @db.Timestamptz(3)
+
+  processo Processo @relation(fields: [processoId], references: [id], onDelete: Cascade)
+
+  @@index([processoId])
+}
+
+// ───────────────────────────── Fornecedores, atas, contratos ─────────────────────────────
+
+model Fornecedor {
+  id          String   @id @default(uuid()) @db.Uuid
+  unidadeId   String   @db.Uuid
+  documento   String // CNPJ/CPF somente dígitos
+  razaoSocial String
+  email       String?
+  telefone    String?
+  criadoEm    DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([unidadeId, documento])
+}
+
+enum TipoVinculoAta {
+  GERENCIADOR
+  PARTICIPANTE
+  ADESAO
+  CONSULTA // apenas importada para análise; não autoriza utilização
+}
+
+model Ata {
+  id                    String         @id @default(uuid()) @db.Uuid
+  unidadeId             String         @db.Uuid
+  numero                String
+  ano                   Int?
+  idPncp                String?
+  orgaoGerenciador      String
+  cnpjGerenciador       String?
+  uasg                  String?
+  objeto                String
+  processoOrigem        String?
+  tipoVinculo           TipoVinculoAta @default(CONSULTA)
+  vigenciaInicio        DateTime       @db.Date
+  vigenciaFim           DateTime       @db.Date
+  cancelada             Boolean        @default(false)
+  autorizacaoUtilizacao String? // documento que autoriza participação/adesão
+  autorizadaEm          DateTime?      @db.Timestamptz(3)
+  autorizadaPor         String?        @db.Uuid
+  importacaoId          String?        @db.Uuid
+  criadoPor             String         @db.Uuid
+  criadoEm              DateTime       @default(now()) @db.Timestamptz(3)
+  atualizadoEm          DateTime       @updatedAt @db.Timestamptz(3)
+
+  itens     ItemAta[]
+  processos Processo[]
+  contratos ContratoInstrumento[]
+
+  @@unique([unidadeId, idPncp])
+}
+
+model ItemAta {
+  id                   String   @id @default(uuid()) @db.Uuid
+  ataId                String   @db.Uuid
+  numeroItem           Int
+  descricao            String
+  fornecedorId         String?  @db.Uuid
+  unidadeMedida        String
+  codigoCatalogo       String?
+  quantidadeRegistrada Decimal? @db.Decimal(18, 4) // nulo = desconhecido na fonte
+  quantidadeDestinada  Decimal  @default(0) @db.Decimal(18, 4)
+  precoUnitario        Decimal  @db.Decimal(18, 2)
+
+  ata        Ata                      @relation(fields: [ataId], references: [id], onDelete: Cascade)
+  movimentos MovimentoQuantidadeAta[]
+
+  @@unique([ataId, numeroItem])
+}
+
+enum TipoMovQtdAta {
+  RESERVA
+  LIBERACAO_RESERVA
+  CONSUMO
+  CANCELAMENTO_CONSUMO
+}
+
+model MovimentoQuantidadeAta {
+  id         String        @id @default(uuid()) @db.Uuid
+  itemAtaId  String        @db.Uuid
+  tipo       TipoMovQtdAta
+  quantidade Decimal       @db.Decimal(18, 4)
+  processoId String?       @db.Uuid
+  contratoId String?       @db.Uuid
+  documento  String?
+  motivo     String?
+  autorId    String        @db.Uuid
+  criadoEm   DateTime      @default(now()) @db.Timestamptz(3)
+
+  item ItemAta @relation(fields: [itemAtaId], references: [id])
+}
+
+enum TipoInstrumento {
+  CONTRATO
+  NOTA_EMPENHO
+  CARTA_CONTRATO
+  AUTORIZACAO_COMPRA
+  ORDEM_EXECUCAO_SERVICO
+  OUTRO
+}
+
+enum NaturezaInstrumento {
+  MATERIAL
+  SERVICO
+  MISTO
+}
+
+enum SituacaoContrato {
+  EM_FORMALIZACAO
+  VIGENTE
+  SUSPENSO
+  EXECUCAO_ENCERRADA
+  RESCINDIDO
+}
+
+model ContratoInstrumento {
+  id                  String              @id @default(uuid()) @db.Uuid
+  unidadeId           String              @db.Uuid
+  numero              String
+  tipo                TipoInstrumento
+  natureza            NaturezaInstrumento
+  processoId          String?             @db.Uuid
+  ataId               String?             @db.Uuid
+  fornecedorId        String              @db.Uuid
+  objeto              String
+  valorInicial        Decimal             @db.Decimal(18, 2)
+  valorAtualizado     Decimal             @db.Decimal(18, 2)
+  dataAssinatura      DateTime?           @db.Date
+  vigenciaInicio      DateTime            @db.Date
+  vigenciaFim         DateTime            @db.Date
+  prazoExecucaoDias   Int?
+  inicioPrevisto      DateTime?           @db.Date
+  inicioReal          DateTime?           @db.Date
+  reajusteIndice      String?
+  garantiaTipo        String?
+  garantiaValor       Decimal?            @db.Decimal(18, 2)
+  garantiaValidade    DateTime?           @db.Date
+  obrigacoes          String?
+  situacao            SituacaoContrato    @default(VIGENTE)
+  execucaoEncerradaEm DateTime?           @db.Date
+  criadoPor           String              @db.Uuid
+  criadoEm            DateTime            @default(now()) @db.Timestamptz(3)
+  atualizadoEm        DateTime            @updatedAt @db.Timestamptz(3)
+
+  processo     Processo?          @relation(fields: [processoId], references: [id])
+  ata          Ata?               @relation(fields: [ataId], references: [id])
+  itens        ItemContrato[]
+  designacoes  Designacao[]
+  aditivos     Aditivo[]
+  entregas     Entrega[]
+  medicoes     Medicao[]
+  registros    RegistroExecucao[]
+  notas        NotaFiscal[]
+  solicitacoes Solicitacao[]
+  rateios      RateioEmpenho[]
+  riscos       Risco[]
+
+  @@unique([unidadeId, numero])
+}
+
+model ItemContrato {
+  id            String  @id @default(uuid()) @db.Uuid
+  contratoId    String  @db.Uuid
+  numero        Int
+  descricao     String
+  unidadeMedida String
+  quantidade    Decimal @db.Decimal(18, 4)
+  valorUnitario Decimal @db.Decimal(18, 2)
+  itemAtaId     String? @db.Uuid
+
+  contrato ContratoInstrumento @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+}
+
+enum FuncaoDesignacao {
+  GESTOR
+  GESTOR_SUBSTITUTO
+  FISCAL_TECNICO
+  FISCAL_ADMINISTRATIVO
+  FISCAL_REQUISITANTE
+  FISCAL_SUBSTITUTO
+}
+
+enum StatusDesignacao {
+  PENDENTE
+  ATIVA
+  ENCERRADA
+}
+
+model Designacao {
+  id                  String           @id @default(uuid()) @db.Uuid
+  unidadeId           String           @db.Uuid
+  contratoId          String           @db.Uuid
+  usuarioId           String           @db.Uuid
+  funcao              FuncaoDesignacao
+  status              StatusDesignacao @default(PENDENTE)
+  documentoDesignacao String? // ex.: Portaria nº / Boletim
+  dataDocumento       DateTime?        @db.Date
+  inicio              DateTime         @db.Date
+  fim                 DateTime?        @db.Date
+  escopo              String?
+  indicadoPor         String           @db.Uuid
+  confirmadoPor       String?          @db.Uuid
+  confirmadoEm        DateTime?        @db.Timestamptz(3)
+  encerradoMotivo     String?
+  criadoEm            DateTime         @default(now()) @db.Timestamptz(3)
+
+  contrato ContratoInstrumento @relation(fields: [contratoId], references: [id])
+  usuario  Usuario             @relation(fields: [usuarioId], references: [id])
+
+  @@index([usuarioId, status])
+}
+
+enum TipoAditivo {
+  PRORROGACAO
+  ACRESCIMO
+  SUPRESSAO
+  REAJUSTE
+  REPACTUACAO
+  REEQUILIBRIO
+  OUTRO
+}
+
+model Aditivo {
+  id                String      @id @default(uuid()) @db.Uuid
+  contratoId        String      @db.Uuid
+  numero            String
+  tipo              TipoAditivo
+  fundamento        String
+  documento         String
+  dataAssinatura    DateTime    @db.Date
+  valorAntes        Decimal     @db.Decimal(18, 2)
+  valorDepois       Decimal     @db.Decimal(18, 2)
+  vigenciaFimAntes  DateTime    @db.Date
+  vigenciaFimDepois DateTime    @db.Date
+  criadoPor         String      @db.Uuid
+  criadoEm          DateTime    @default(now()) @db.Timestamptz(3)
+
+  contrato ContratoInstrumento @relation(fields: [contratoId], references: [id])
+}
+
+// ───────────────────────────── Execução ─────────────────────────────
+
+enum StatusEntrega {
+  PENDENTE
+  ENTREGUE_PARCIAL
+  RECEBIDA_PROVISORIA
+  RECEBIDA_DEFINITIVA
+  REJEITADA
+  CANCELADA
+}
+
+model Entrega {
+  id                 String        @id @default(uuid()) @db.Uuid
+  unidadeId          String        @db.Uuid
+  contratoId         String        @db.Uuid
+  descricao          String
+  local              String?
+  quantidadePrevista Decimal       @db.Decimal(18, 4)
+  quantidadeEntregue Decimal       @default(0) @db.Decimal(18, 4)
+  prazo              DateTime      @db.Date
+  status             StatusEntrega @default(PENDENTE)
+  criadoPor          String        @db.Uuid
+  criadoEm           DateTime      @default(now()) @db.Timestamptz(3)
+
+  contrato     ContratoInstrumento @relation(fields: [contratoId], references: [id])
+  recebimentos Recebimento[]
+}
+
+enum StatusMedicao {
+  EM_ELABORACAO
+  ENVIADA
+  APROVADA
+  GLOSADA
+}
+
+model Medicao {
+  id               String        @id @default(uuid()) @db.Uuid
+  unidadeId        String        @db.Uuid
+  contratoId       String        @db.Uuid
+  competencia      String // AAAA-MM
+  descricao        String
+  percentualFisico Decimal       @db.Decimal(5, 2)
+  valor            Decimal       @db.Decimal(18, 2)
+  status           StatusMedicao @default(EM_ELABORACAO)
+  inconformidades  String?
+  criadoPor        String        @db.Uuid
+  criadoEm         DateTime      @default(now()) @db.Timestamptz(3)
+
+  contrato     ContratoInstrumento @relation(fields: [contratoId], references: [id])
+  recebimentos Recebimento[]
+}
+
+enum TipoRecebimento {
+  PROVISORIO
+  DEFINITIVO
+  REJEICAO
+}
+
+model Recebimento {
+  id            String          @id @default(uuid()) @db.Uuid
+  unidadeId     String          @db.Uuid
+  entregaId     String?         @db.Uuid
+  medicaoId     String?         @db.Uuid
+  tipo          TipoRecebimento
+  quantidade    Decimal?        @db.Decimal(18, 4)
+  data          DateTime        @db.Date
+  observacao    String?
+  responsavelId String          @db.Uuid
+  designacaoId  String?         @db.Uuid
+  criadoEm      DateTime        @default(now()) @db.Timestamptz(3)
+
+  entrega Entrega? @relation(fields: [entregaId], references: [id])
+  medicao Medicao? @relation(fields: [medicaoId], references: [id])
+}
+
+enum TipoRegistroExecucao {
+  RELATORIO
+  OCORRENCIA
+  INCONFORMIDADE
+  ORDEM_SERVICO
+}
+
+model RegistroExecucao {
+  id         String               @id @default(uuid()) @db.Uuid
+  unidadeId  String               @db.Uuid
+  contratoId String               @db.Uuid
+  tipo       TipoRegistroExecucao
+  titulo     String
+  texto      String
+  data       DateTime             @db.Date
+  autorId    String               @db.Uuid
+  criadoEm   DateTime             @default(now()) @db.Timestamptz(3)
+
+  contrato ContratoInstrumento @relation(fields: [contratoId], references: [id])
+}
+
+enum StatusNotaFiscal {
+  RECEBIDA
+  ATESTADA
+  REJEITADA
+  CANCELADA
+}
+
+model NotaFiscal {
+  id              String           @id @default(uuid()) @db.Uuid
+  unidadeId       String           @db.Uuid
+  contratoId      String           @db.Uuid
+  numero          String
+  serie           String?
+  chaveAcesso     String?
+  dataEmissao     DateTime         @db.Date
+  dataRecebimento DateTime         @db.Date
+  valor           Decimal          @db.Decimal(18, 2)
+  status          StatusNotaFiscal @default(RECEBIDA)
+  criadoPor       String           @db.Uuid
+  criadoEm        DateTime         @default(now()) @db.Timestamptz(3)
+
+  contrato ContratoInstrumento @relation(fields: [contratoId], references: [id])
+  atestos  Atesto[]
+
+  @@unique([contratoId, numero, serie])
+}
+
+model Atesto {
+  id           String   @id @default(uuid()) @db.Uuid
+  notaFiscalId String   @db.Uuid
+  usuarioId    String   @db.Uuid
+  designacaoId String?  @db.Uuid
+  competencia  String // função/fundamento que conferiu competência
+  data         DateTime @db.Date
+  observacao   String?
+  criadoEm     DateTime @default(now()) @db.Timestamptz(3)
+
+  nota NotaFiscal @relation(fields: [notaFiscalId], references: [id])
+}
+
+// ───────────────────────────── Financeiro ─────────────────────────────
+
+model Credito {
+  id                String    @id @default(uuid()) @db.Uuid
+  unidadeId         String    @db.Uuid
+  exercicio         Int
+  ptres             String
+  fonte             String
+  naturezaDespesa   String
+  planoInterno      String?
+  ugr               String?
+  descricao         String?
+  ultimaConciliacao DateTime? @db.Timestamptz(3)
+  fonteConciliacao  String?
+  criadoEm          DateTime  @default(now()) @db.Timestamptz(3)
+
+  movimentos MovimentoCredito[]
+  empenhos   Empenho[]
+  alocacoes  AlocacaoOrcamentaria[]
+
+  @@unique([unidadeId, exercicio, ptres, fonte, naturezaDespesa, planoInterno])
+}
+
+enum TipoMovCredito {
+  INICIAL
+  ACRESCIMO
+  REDUCAO
+}
+
+model MovimentoCredito {
+  id            String         @id @default(uuid()) @db.Uuid
+  creditoId     String         @db.Uuid
+  tipo          TipoMovCredito
+  valor         Decimal        @db.Decimal(18, 2)
+  dataMovimento DateTime       @db.Date
+  documento     String
+  observacao    String?
+  estornoDeId   String?        @unique @db.Uuid
+  autorId       String         @db.Uuid
+  criadoEm      DateTime       @default(now()) @db.Timestamptz(3)
+
+  credito Credito @relation(fields: [creditoId], references: [id])
+}
+
+model AlocacaoOrcamentaria {
+  id         String   @id @default(uuid()) @db.Uuid
+  unidadeId  String   @db.Uuid
+  creditoId  String?  @db.Uuid
+  demandaId  String?  @db.Uuid
+  processoId String?  @db.Uuid
+  exercicio  Int
+  valor      Decimal  @db.Decimal(18, 2)
+  aprovadaEm DateTime @db.Date
+  documento  String?
+  autorId    String   @db.Uuid
+  criadoEm   DateTime @default(now()) @db.Timestamptz(3)
+
+  credito  Credito?  @relation(fields: [creditoId], references: [id])
+  demanda  Demanda?  @relation(fields: [demandaId], references: [id])
+  processo Processo? @relation(fields: [processoId], references: [id])
+}
+
+model Empenho {
+  id                String    @id @default(uuid()) @db.Uuid
+  unidadeId         String    @db.Uuid
+  numero            String // ex.: 2026NE000123
+  exercicio         Int
+  creditoId         String    @db.Uuid
+  fornecedorId      String    @db.Uuid
+  processoId        String?   @db.Uuid
+  tipo              String    @default("ORDINARIO") // ORDINARIO | ESTIMATIVO | GLOBAL
+  dataEmissao       DateTime  @db.Date
+  descricao         String?
+  ultimaConciliacao DateTime? @db.Timestamptz(3)
+  fonteConciliacao  String?
+  criadoEm          DateTime  @default(now()) @db.Timestamptz(3)
+
+  credito    Credito                 @relation(fields: [creditoId], references: [id])
+  movimentos MovimentoEmpenho[]
+  rateios    RateioEmpenho[]
+  inscricoes InscricaoRestosAPagar[]
+
+  @@unique([unidadeId, numero])
+}
+
+/// Ledger único do empenho. Valores sempre positivos; o tipo define o sinal.
+/// Correções só por estorno (estornoDeId) — nunca edição.
+enum TipoMovEmpenho {
+  EMISSAO
+  REFORCO
+  ANULACAO
+  LIQUIDACAO
+  ESTORNO_LIQUIDACAO
+  PAGAMENTO
+  ESTORNO_PAGAMENTO
+}
+
+model MovimentoEmpenho {
+  id            String         @id @default(uuid()) @db.Uuid
+  empenhoId     String         @db.Uuid
+  tipo          TipoMovEmpenho
+  valor         Decimal        @db.Decimal(18, 2)
+  dataMovimento DateTime       @db.Date
+  documento     String // NE/NS/OB etc.
+  notaFiscalId  String?        @db.Uuid
+  contratoId    String?        @db.Uuid
+  estornoDeId   String?        @unique @db.Uuid
+  observacao    String?
+  origem        String         @default("MANUAL") // MANUAL | IMPORTACAO
+  autorId       String         @db.Uuid
+  criadoEm      DateTime       @default(now()) @db.Timestamptz(3)
+
+  empenho Empenho @relation(fields: [empenhoId], references: [id])
+
+  @@index([empenhoId])
+}
+
+model RateioEmpenho {
+  id         String   @id @default(uuid()) @db.Uuid
+  empenhoId  String   @db.Uuid
+  contratoId String   @db.Uuid
+  valor      Decimal  @db.Decimal(18, 2)
+  criadoEm   DateTime @default(now()) @db.Timestamptz(3)
+
+  empenho  Empenho             @relation(fields: [empenhoId], references: [id])
+  contrato ContratoInstrumento @relation(fields: [contratoId], references: [id])
+
+  @@unique([empenhoId, contratoId])
+}
+
+enum TipoRestosAPagar {
+  PROCESSADO
+  NAO_PROCESSADO
+}
+
+model InscricaoRestosAPagar {
+  id              String           @id @default(uuid()) @db.Uuid
+  unidadeId       String           @db.Uuid
+  empenhoId       String           @db.Uuid
+  exercicioOrigem Int
+  tipo            TipoRestosAPagar
+  saldoAbertura   Decimal          @db.Decimal(18, 2)
+  dataInscricao   DateTime         @db.Date
+  documento       String
+  autorId         String           @db.Uuid
+  criadoEm        DateTime         @default(now()) @db.Timestamptz(3)
+
+  empenho    Empenho                 @relation(fields: [empenhoId], references: [id])
+  movimentos MovimentoRestosAPagar[]
+
+  @@unique([empenhoId, exercicioOrigem, tipo])
+}
+
+enum TipoMovRap {
+  LIQUIDACAO
+  PAGAMENTO
+  CANCELAMENTO
+  ESTORNO
+}
+
+model MovimentoRestosAPagar {
+  id            String     @id @default(uuid()) @db.Uuid
+  inscricaoId   String     @db.Uuid
+  tipo          TipoMovRap
+  valor         Decimal    @db.Decimal(18, 2)
+  dataMovimento DateTime   @db.Date
+  documento     String
+  estornoDeId   String?    @unique @db.Uuid
+  autorId       String     @db.Uuid
+  criadoEm      DateTime   @default(now()) @db.Timestamptz(3)
+
+  inscricao InscricaoRestosAPagar @relation(fields: [inscricaoId], references: [id])
+}
+
+// ───────────────────────────── Riscos ─────────────────────────────
+
+enum StatusRisco {
+  ABERTO
+  EM_TRATAMENTO
+  MONITORADO
+  ENCERRADO
+}
+
+model Risco {
+  id              String      @id @default(uuid()) @db.Uuid
+  unidadeId       String      @db.Uuid
+  processoId      String?     @db.Uuid
+  contratoId      String?     @db.Uuid
+  evento          String
+  causa           String
+  consequencia    String
+  fase            String
+  categoria       String
+  probabilidade   Int
+  impacto         Int
+  probResidual    Int?
+  impactoResidual Int?
+  controles       String?
+  acaoPreventiva  String?
+  contingencia    String?
+  responsavelId   String?     @db.Uuid
+  proximaRevisao  DateTime?   @db.Date
+  status          StatusRisco @default(ABERTO)
+  criadoPor       String      @db.Uuid
+  criadoEm        DateTime    @default(now()) @db.Timestamptz(3)
+  atualizadoEm    DateTime    @updatedAt @db.Timestamptz(3)
+
+  processo   Processo?            @relation(fields: [processoId], references: [id])
+  contrato   ContratoInstrumento? @relation(fields: [contratoId], references: [id])
+  avaliacoes AvaliacaoRisco[]
+}
+
+model AvaliacaoRisco {
+  id              String   @id @default(uuid()) @db.Uuid
+  riscoId         String   @db.Uuid
+  probabilidade   Int
+  impacto         Int
+  probResidual    Int?
+  impactoResidual Int?
+  comentario      String?
+  autorId         String   @db.Uuid
+  criadoEm        DateTime @default(now()) @db.Timestamptz(3)
+
+  risco Risco @relation(fields: [riscoId], references: [id], onDelete: Cascade)
+}
+
+// ───────────────────────────── Calendário e notificações ─────────────────────────────
+
+enum TipoEvento {
+  CONTATO_EMPRESA
+  SOLICITACAO_EMPENHO
+  ENTREGA
+  INICIO_SERVICO
+  TERMINO_SERVICO
+  DFD
+  REVISAO_RISCO
+  VIGENCIA
+  MARCO_TOD
+  PROPOSTA_ORCAMENTARIA
+  REUNIAO
+  OUTRO
+}
+
+model Evento {
+  id            String     @id @default(uuid()) @db.Uuid
+  unidadeId     String     @db.Uuid
+  titulo        String
+  descricao     String?
+  tipo          TipoEvento
+  responsavelId String?    @db.Uuid
+  participantes String[]   @db.Uuid
+  processoId    String?    @db.Uuid
+  contratoId    String?    @db.Uuid
+  ataId         String?    @db.Uuid
+  inicio        DateTime   @db.Timestamptz(3)
+  fim           DateTime?  @db.Timestamptz(3)
+  diaInteiro    Boolean    @default(false)
+  prioridade    Prioridade @default(MEDIA)
+  concluido     Boolean    @default(false)
+  recorrencia   String     @default("NENHUMA") // NENHUMA | SEMANAL | MENSAL | ANUAL
+  lembreteDias  Int[]
+  criadoPor     String     @db.Uuid
+  criadoEm      DateTime   @default(now()) @db.Timestamptz(3)
+}
+
+model Notificacao {
+  id        String    @id @default(uuid()) @db.Uuid
+  unidadeId String    @db.Uuid
+  usuarioId String    @db.Uuid
+  chave     String    @unique // idempotência: regra:entidade:id:marco:data:usuario
+  nivel     String    @default("INFO") // INFO | ATENCAO | CRITICO
+  titulo    String
+  mensagem  String
+  regra     String
+  link      String?
+  lidaEm    DateTime? @db.Timestamptz(3)
+  criadaEm  DateTime  @default(now()) @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([usuarioId, lidaEm])
+}
+
+model JobExecucao {
+  id             String    @id @default(uuid()) @db.Uuid
+  nome           String
+  dataReferencia DateTime  @db.Date
+  status         String // EXECUTANDO | CONCLUIDO | FALHOU
+  tentativas     Int       @default(1)
+  iniciadoEm     DateTime  @default(now()) @db.Timestamptz(3)
+  finalizadoEm   DateTime? @db.Timestamptz(3)
+  log            String?
+
+  @@unique([nome, dataReferencia])
+}
+
+// ───────────────────────────── Solicitações ─────────────────────────────
+
+enum CategoriaSolicitacao {
+  CONTATO
+  NOTIFICACAO
+  DOCUMENTACAO
+  CORRECAO
+  OUTRA
+}
+
+enum StatusSolicitacao {
+  ABERTA
+  EM_TRIAGEM
+  EM_ATENDIMENTO
+  AGUARDANDO_EMPRESA
+  RESOLVIDA
+  CANCELADA
+}
+
+model Solicitacao {
+  id                 String               @id @default(uuid()) @db.Uuid
+  unidadeId          String               @db.Uuid
+  contratoId         String               @db.Uuid
+  categoria          CategoriaSolicitacao
+  titulo             String
+  descricao          String
+  prioridade         Prioridade           @default(MEDIA)
+  status             StatusSolicitacao    @default(ABERTA)
+  responsavelId      String?              @db.Uuid
+  prazo              DateTime?            @db.Date
+  autorId            String               @db.Uuid
+  motivoCancelamento String?
+  criadoEm           DateTime             @default(now()) @db.Timestamptz(3)
+  atualizadoEm       DateTime             @updatedAt @db.Timestamptz(3)
+
+  contrato   ContratoInstrumento    @relation(fields: [contratoId], references: [id])
+  interacoes InteracaoSolicitacao[]
+}
+
+model InteracaoSolicitacao {
+  id            String   @id @default(uuid()) @db.Uuid
+  solicitacaoId String   @db.Uuid
+  tipo          String // COMENTARIO | MUDANCA_STATUS | COMUNICACAO_EXTERNA | MINUTA
+  texto         String
+  autorId       String   @db.Uuid
+  criadoEm      DateTime @default(now()) @db.Timestamptz(3)
+
+  solicitacao Solicitacao @relation(fields: [solicitacaoId], references: [id])
+}
+
+// ───────────────────────────── Documentos ─────────────────────────────
+
+enum TipoVinculoDoc {
+  PROCESSO
+  CHECKLIST_ITEM
+  ATA
+  CONTRATO
+  ENTREGA
+  MEDICAO
+  NOTA_FISCAL
+  SOLICITACAO
+  RISCO
+  EMPENHO
+  GERAL
+}
+
+model Documento {
+  id             String    @id @default(uuid()) @db.Uuid
+  unidadeId      String    @db.Uuid
+  titulo         String
+  categoria      String
+  liberadoGestor Boolean   @default(false)
+  criadoPor      String    @db.Uuid
+  criadoEm       DateTime  @default(now()) @db.Timestamptz(3)
+  arquivadoEm    DateTime? @db.Timestamptz(3)
+
+  versoes  VersaoDocumento[]
+  vinculos VinculoDocumento[]
+}
+
+model VersaoDocumento {
+  id           String   @id @default(uuid()) @db.Uuid
+  documentoId  String   @db.Uuid
+  versao       Int
+  nomeOriginal String
+  chaveStorage String   @unique // nome interno aleatório
+  mime         String
+  tamanho      Int
+  sha256       String
+  criadoPor    String   @db.Uuid
+  criadoEm     DateTime @default(now()) @db.Timestamptz(3)
+
+  documento Documento @relation(fields: [documentoId], references: [id])
+
+  @@unique([documentoId, versao])
+}
+
+model VinculoDocumento {
+  id          String         @id @default(uuid()) @db.Uuid
+  documentoId String         @db.Uuid
+  tipo        TipoVinculoDoc
+  entidadeId  String         @db.Uuid
+  contratoId  String?        @db.Uuid // contrato resolvido para autorização de gestores
+  criadoEm    DateTime       @default(now()) @db.Timestamptz(3)
+
+  documento Documento @relation(fields: [documentoId], references: [id])
+
+  @@unique([documentoId, tipo, entidadeId])
+  @@index([tipo, entidadeId])
+  @@index([contratoId])
+}
+
+// ───────────────────────────── Integrações ─────────────────────────────
+
+model ImportacaoExterna {
+  id             String    @id @default(uuid()) @db.Uuid
+  unidadeId      String    @db.Uuid
+  fonte          String // PNCP_ATA | CATMAT | CATSER
+  identificador  String
+  consultadoEm   DateTime  @db.Timestamptz(3)
+  urlConsulta    String
+  hash           String
+  dadosOriginais Json
+  status         String    @default("PREVIA") // PREVIA | IMPORTADA | DESCARTADA | ATUALIZACAO_PENDENTE
+  entidadeId     String?   @db.Uuid
+  revisadoPor    String?   @db.Uuid
+  revisadoEm     DateTime? @db.Timestamptz(3)
+  criadoEm       DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([unidadeId, fonte, identificador])
+}
+
+model CacheConsulta {
+  chave        String   @id
+  fonte        String
+  resposta     Json
+  consultadoEm DateTime @db.Timestamptz(3)
+}
+
+model Favorito {
+  id            String   @id @default(uuid()) @db.Uuid
+  usuarioId     String   @db.Uuid
+  unidadeId     String   @db.Uuid
+  fonte         String
+  identificador String
+  descricao     String
+  criadoEm      DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([usuarioId, fonte, identificador])
+}

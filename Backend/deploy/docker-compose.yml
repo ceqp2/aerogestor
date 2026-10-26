@@ -1,0 +1,61 @@
+# Implantação conjunta (homologação). Pressupõe reverse proxy TLS externo à frente da porta "web".
+# Uso (a partir de Backend/):  docker compose -f deploy/docker-compose.yml --env-file deploy/.env.producao up -d --build
+name: aerogest
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aerogest
+      POSTGRES_USER: aerogest
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
+      TZ: UTC
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [interna]          # banco NÃO exposto publicamente
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aerogest -d aerogest"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ..
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://aerogest:${POSTGRES_PASSWORD}@db:5432/aerogest?schema=public
+      APP_ORIGIN: ${APP_ORIGIN:?defina APP_ORIGIN (https://...)}
+      SESSION_SECRET: ${SESSION_SECRET:?defina SESSION_SECRET}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?defina DATA_ENCRYPTION_KEY}
+      COOKIE_SECURE: "true"
+      MFA_ENFORCE_PRIVILEGED: "true"
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+      STORAGE_LOCAL_DIR: /app/storage
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      JOBS_ENABLED: "true"
+    volumes:
+      - arquivos:/app/storage
+    networks: [interna]
+
+  web:
+    build: ../../Frontend
+    restart: unless-stopped
+    depends_on: [api]
+    ports:
+      - "127.0.0.1:8080:8080"   # publicar somente via reverse proxy TLS
+    networks: [interna]
+
+volumes:
+  pgdata:
+  arquivos:
+
+networks:
+  interna:

@@ -1,0 +1,7 @@
+node_modules
+dist
+storage
+.local
+.env
+openapi.json
+*.log

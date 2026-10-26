@@ -30,7 +30,7 @@ async function bootstrap() {
           'img-src': ["'self'", 'data:'],
         },
       },
-      crossOriginResourcePolicy: { policy: 'same-origin' },
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
   app.use(cookieParser());

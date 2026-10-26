@@ -24,4 +24,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD node -e "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 ENTRYPOINT ["/usr/bin/tini", "--"]
 # Aplica migrations, garante dados-base idempotentes (unidade, parâmetros propostos, modelos) e inicia a API
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/cli/seed.js && node dist/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/cli/seed.js && if [ -n \"$ADMIN_EMAIL\" ] && [ -n \"$ADMIN_NOME\" ]; then node dist/cli/create-admin.js --email \"$ADMIN_EMAIL\" --nome \"$ADMIN_NOME\" --unidade \"${ADMIN_UNIDADE:-GSD-SJ}\"; fi && node dist/main.js"]

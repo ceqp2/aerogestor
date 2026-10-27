@@ -14,21 +14,6 @@ import { ETAPAS, FORMAS, PERFIS, rotulo } from '@/lib/rotulos';
 import { Perfil, useAuth } from '@/hooks/useAuth';
 import { enviarEmailAcesso } from '@/lib/emailjs';
 
-function CampoSenha({ id, label, value, onChange }: { id: string; label: string; value: string; onChange: (v: string) => void }) {
-  const [ver, setVer] = useState(false);
-  return (
-    <div>
-      <label htmlFor={id} className="mb-1 block text-sm font-medium">{label} *</label>
-      <div className="relative">
-        <input id={id} type={ver ? 'text' : 'password'} autoComplete="new-password" className="min-h-11 w-full rounded-lg border border-borda px-3 pr-10" value={value} onChange={e => onChange(e.target.value)} />
-        <button type="button" className="absolute inset-y-0 right-2 flex items-center text-tinta-suave hover:text-tinta" onClick={() => setVer(v => !v)} tabIndex={-1} aria-label={ver ? 'Ocultar senha' : 'Mostrar senha'}>
-          {ver ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const PODE_GERIR: Record<Perfil, Perfil[]> = {
   ADMIN: ['ADMIN', 'COMANDANTE', 'CHEFE', 'AUXILIAR', 'GESTOR'],
@@ -67,8 +52,10 @@ function NovoUsuarioModal({ aberto, aoFechar, perfisCriaveis, aoSalvar }: { aber
   const [erro, setErro] = useState<string | null>(null);
   const [campos, setCampos] = useState({ nome: '', nomeGuerra: '', postoGraduacao: '', email: '', perfil: perfisCriaveis[0] ?? '', senha: '', confirmarSenha: '' });
   const [enviando, setEnviando] = useState(false);
+  const [verSenha, setVerSenha] = useState(false);
+  const [verConfirmar, setVerConfirmar] = useState(false);
 
-  const resetar = () => { setCampos({ nome: '', nomeGuerra: '', postoGraduacao: '', email: '', perfil: perfisCriaveis[0] ?? '', senha: '', confirmarSenha: '' }); setErro(null); };
+  const resetar = () => { setCampos({ nome: '', nomeGuerra: '', postoGraduacao: '', email: '', perfil: perfisCriaveis[0] ?? '', senha: '', confirmarSenha: '' }); setErro(null); setVerSenha(false); setVerConfirmar(false); };
 
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,8 +105,24 @@ function NovoUsuarioModal({ aberto, aoFechar, perfisCriaveis, aoSalvar }: { aber
               {perfisCriaveis.map(p => <option key={p} value={p}>{PERFIS[p as keyof typeof PERFIS] ?? p}</option>)}
             </select>
           </div>
-          <CampoSenha id="nu-senha" label="Senha temporária" value={campos.senha} onChange={v => setCampos(p => ({ ...p, senha: v }))} />
-          <CampoSenha id="nu-confirmar" label="Confirmar senha" value={campos.confirmarSenha} onChange={v => setCampos(p => ({ ...p, confirmarSenha: v }))} />
+          <div>
+            <label htmlFor="nu-senha" className="mb-1 block text-sm font-medium">Senha temporária *</label>
+            <div className="relative">
+              <input id="nu-senha" type={verSenha ? 'text' : 'password'} autoComplete="new-password" className="min-h-11 w-full rounded-lg border border-borda px-3 pr-10" value={campos.senha} onChange={e => setCampos(p => ({ ...p, senha: e.target.value }))} />
+              <button type="button" className="absolute inset-y-0 right-2 flex items-center text-tinta-suave hover:text-tinta" onClick={() => setVerSenha(v => !v)} tabIndex={-1} aria-label={verSenha ? 'Ocultar senha' : 'Mostrar senha'}>
+                {verSenha ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label htmlFor="nu-confirmar" className="mb-1 block text-sm font-medium">Confirmar senha *</label>
+            <div className="relative">
+              <input id="nu-confirmar" type={verConfirmar ? 'text' : 'password'} autoComplete="new-password" className="min-h-11 w-full rounded-lg border border-borda px-3 pr-10" value={campos.confirmarSenha} onChange={e => setCampos(p => ({ ...p, confirmarSenha: e.target.value }))} />
+              <button type="button" className="absolute inset-y-0 right-2 flex items-center text-tinta-suave hover:text-tinta" onClick={() => setVerConfirmar(v => !v)} tabIndex={-1} aria-label={verConfirmar ? 'Ocultar senha' : 'Mostrar senha'}>
+                {verConfirmar ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
+          </div>
         </div>
         <p className="text-xs text-tinta-suave">Política: mín. 12 caracteres com ao menos 3 de: maiúsculas, minúsculas, números e símbolos.</p>
       </form>

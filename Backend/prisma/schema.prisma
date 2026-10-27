@@ -90,6 +90,7 @@ model Sessao {
   id          String    @id @default(uuid()) @db.Uuid
   tokenHash   String    @unique
   csrfHash    String
+  csrfPlain   String?
   usuarioId   String    @db.Uuid
   unidadeId   String?   @db.Uuid
   mfaPendente Boolean   @default(false)

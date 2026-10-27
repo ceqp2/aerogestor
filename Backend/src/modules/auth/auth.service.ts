@@ -33,6 +33,7 @@ export class AuthService {
       data: {
         tokenHash: hashToken(token),
         csrfHash: hashToken(csrf),
+        csrfPlain: csrf,
         usuarioId,
         unidadeId,
         mfaPendente,
@@ -127,6 +128,7 @@ export class AuthService {
     const atual = unidades.find((x) => x.id === sessao.unidadeId) ?? null;
     return {
       usuario: { id: u.id, nome: u.nome, email: u.email, postoGraduacao: u.postoGraduacao, mfaAtivo: u.mfaAtivo },
+      csrfToken: sessao.csrfPlain ?? undefined,
       mfaPendente: sessao.mfaPendente,
       mfaObrigatorio: env().mfaEnforcePrivileged && !!atual && ['ADMIN', 'CHEFE', 'COMANDANTE'].includes(atual.perfil) && !u.mfaAtivo,
       unidades: sessao.mfaPendente ? [] : unidades,

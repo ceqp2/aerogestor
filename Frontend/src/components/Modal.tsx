@@ -7,6 +7,9 @@ import { Botao } from './ui';
 export function Modal({ aberto, aoFechar, titulo, children, rodape, largo }: { aberto: boolean; aoFechar: () => void; titulo: string; children: ReactNode; rodape?: ReactNode; largo?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const tituloId = useId();
+  // Usa ref para evitar que aoFechar recriada a cada render dispare o effect novamente
+  const aoFecharRef = useRef(aoFechar);
+  aoFecharRef.current = aoFechar;
   useEffect(() => {
     if (!aberto) return;
     const anterior = document.activeElement as HTMLElement | null;
@@ -15,7 +18,7 @@ export function Modal({ aberto, aoFechar, titulo, children, rodape, largo }: { a
       Array.from(el?.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') ?? []).filter((x) => !x.hasAttribute('disabled'));
     setTimeout(() => (focaveis()[1] ?? focaveis()[0])?.focus(), 0);
     const tecla = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') aoFechar();
+      if (e.key === 'Escape') aoFecharRef.current();
       if (e.key === 'Tab') {
         const f = focaveis();
         if (!f.length) return;
@@ -35,7 +38,8 @@ export function Modal({ aberto, aoFechar, titulo, children, rodape, largo }: { a
       document.body.style.overflow = '';
       anterior?.focus();
     };
-  }, [aberto, aoFechar]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aberto]);
   if (!aberto) return null;
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-tinta/40 p-0 sm:items-center sm:p-4" onMouseDown={(e) => e.target === e.currentTarget && aoFechar()}>

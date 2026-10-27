@@ -72,9 +72,9 @@ function BuscaPncp() {
   const toast = useToast();
   const navegar = useNavigate();
   const hoje = hojeISO();
-  const [f, setF] = useState({ dataInicial: hoje.slice(0, 8) + '01', dataFinal: hoje, cnpj: '', uf: '', numeroAta: '', textoLocal: '', pagina: 1 });
+  const [f, setF] = useState({ dataInicial: hoje.slice(0, 8) + '01', dataFinal: hoje, cnpj: '', uf: '', modalidade: '', numeroAta: '', textoLocal: '', pagina: 1 });
   const [busca, setBusca] = useState<typeof f | null>(null);
-  const q = useQuery({ queryKey: ['pncp', busca], queryFn: () => api.get<any>(`/integracoes/pncp/atas${qs({ ...busca!, tamanhoPagina: 20 })}`), enabled: !!busca, retry: false });
+  const q = useQuery({ queryKey: ['pncp', busca], queryFn: () => api.get<any>(`/integracoes/pncp/atas${qs({ ...busca!, modalidadeId: busca!.modalidade || undefined, tamanhoPagina: 20 })}`), enabled: !!busca, retry: false });
   const [previa, setPrevia] = useState<any>(null);
 
   const buscar = (e: FormEvent) => {
@@ -114,6 +114,12 @@ function BuscaPncp() {
             <select value={f.uf} onChange={(e) => setF({ ...f, uf: e.target.value })} className="mt-1 min-h-11 w-full rounded-lg border border-borda bg-white px-3 text-sm text-tinta">
               <option value="">Todos os estados</option>
               {UFS.map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </label>
+          <label className="text-xs font-medium text-tinta-suave">
+            Modalidade
+            <select value={f.modalidade} onChange={(e) => setF({ ...f, modalidade: e.target.value })} className="mt-1 min-h-11 w-full rounded-lg border border-borda bg-white px-3 text-sm text-tinta">
+              {MODALIDADES_PNCP.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
             </select>
           </label>
           <label className="text-xs font-medium text-tinta-suave">

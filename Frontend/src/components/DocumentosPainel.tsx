@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Download, FileUp, Upload } from 'lucide-react';
+import { Download, FileText, FileUp, Pencil, Trash2, Upload } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import { dataHora, tamanhoArquivo } from '@/lib/formato';
@@ -7,7 +7,7 @@ import { CATEGORIAS_DOC, opcoes, rotulo } from '@/lib/rotulos';
 import { useAuth } from '@/hooks/useAuth';
 import { useMutacao } from '@/hooks/useMutacao';
 import { Carregando, ErroCarga, mensagemErro, useToast, Vazio } from './feedback';
-import { Modal } from './Modal';
+import { Confirmacao, Modal } from './Modal';
 import { Aviso, Botao, Selo } from './ui';
 
 export interface DocumentoLista {
@@ -28,16 +28,19 @@ export function DocumentosPainel({ vinculoTipo, vinculoId, titulo = 'Documentos'
   const q = useQuery({ queryKey: chave, queryFn: () => api.get<DocumentoLista[]>(`/documentos?vinculoTipo=${vinculoTipo}&vinculoId=${vinculoId}`) });
   const [enviarAberto, setEnviarAberto] = useState(false);
   const [versaoDe, setVersaoDe] = useState<DocumentoLista | null>(null);
+  const [editarDoc, setEditarDoc] = useState<DocumentoLista | null>(null);
+  const [excluirDoc, setExcluirDoc] = useState<DocumentoLista | null>(null);
   const toast = useToast();
   const liberar = useMutacao((d: DocumentoLista) => api.patch(`/documentos/${d.id}`, { liberadoGestor: !d.liberadoGestor }), { invalidar: [chave], sucesso: 'Acesso do gestor atualizado' });
+  const excluir = useMutacao((d: DocumentoLista) => api.delete<void>(`/documentos/${d.id}`), { invalidar: [chave], sucesso: 'Documento excluído' });
 
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-semibold">{titulo}</h3>
-        {podeEnviar && (
+        <h3 className="font-semibold text-tinta">{titulo}</h3>
+        {pode.escrever && podeEnviar && (
           <Botao pequeno icone={<Upload className="size-4" />} onClick={() => setEnviarAberto(true)}>
-            Anexar
+            Anexar documento
           </Botao>
         )}
       </div>
@@ -46,40 +49,64 @@ export function DocumentosPainel({ vinculoTipo, vinculoId, titulo = 'Documentos'
       ) : q.isError ? (
         <ErroCarga erro={q.error} tentarNovamente={() => q.refetch()} />
       ) : !q.data?.length ? (
-        <Vazio titulo="Nenhum documento" texto="Anexos ficam em armazenamento privado; o download exige autorização a cada acesso." />
+        <Vazio
+          titulo="Nenhum documento anexado"
+          texto={pode.escrever && podeEnviar ? 'Clique em "Anexar documento" para adicionar o primeiro arquivo.' : 'Nenhum documento disponível.'}
+        />
       ) : (
-        <ul className="divide-y divide-borda rounded-lg border border-borda">
+        <ul className="divide-y divide-borda overflow-hidden rounded-xl border border-borda bg-white">
           {q.data.map((d) => {
             const v = d.versoes[0];
             return (
-              <li key={d.id} className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
+              <li key={d.id} className="group flex flex-col gap-3 p-4 transition-colors hover:bg-fundo sm:flex-row sm:items-start">
+                {/* Ícone do tipo */}
+                <div className="hidden shrink-0 sm:flex sm:items-center sm:justify-center sm:pt-0.5">
+                  <FileText className="size-8 text-acao/60" />
+                </div>
+                {/* Informações */}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{d.titulo}</p>
-                  <p className="text-xs text-tinta-suave">
-                    {rotulo(CATEGORIAS_DOC, d.categoria)} • v{v?.versao} • {v ? tamanhoArquivo(v.tamanho) : ''} • {dataHora(v?.criadoEm)}
-                  </p>
-                  <p className="truncate text-[0.65rem] text-tinta-suave" title={v?.sha256}>
-                    SHA-256 {v?.sha256.slice(0, 16)}…
+                  <p className="font-medium text-tinta">{d.titulo}</p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-tinta-suave">
+                    <span>{rotulo(CATEGORIAS_DOC, d.categoria)}</span>
+                    <span>•</span>
+                    <span>v{v?.versao}</span>
+                    <span>•</span>
+                    <span>{v ? tamanhoArquivo(v.tamanho) : ''}</span>
+                    <span>•</span>
+                    <span>{dataHora(v?.criadoEm)}</span>
+                  </div>
+                  <p className="mt-0.5 truncate text-[0.65rem] text-tinta-suave/70" title={v?.sha256}>
+                    SHA-256: {v?.sha256.slice(0, 20)}…
                   </p>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                {/* Ações */}
+                <div className="flex flex-wrap items-center gap-1.5">
                   {pode.escrever && (
-                    <button onClick={() => liberar.mutate(d)} className="text-xs" title="Alternar visibilidade para gestores do contrato">
+                    <button
+                      onClick={() => liberar.mutate(d)}
+                      className="rounded-full border px-2 py-0.5 text-xs transition-colors"
+                      title="Alternar visibilidade para gestores"
+                    >
                       <Selo tom={d.liberadoGestor ? 'ok' : 'neutro'}>{d.liberadoGestor ? 'Visível ao gestor' : 'Interno'}</Selo>
                     </button>
                   )}
                   <Botao
                     pequeno
                     variante="secundario"
-                    icone={<Download className="size-4" />}
+                    icone={<Download className="size-3.5" />}
                     onClick={() => api.baixar(`/documentos/${d.id}/download`, v?.nomeOriginal).catch((e) => toast.erro(e))}
+                    title="Baixar arquivo"
                   >
                     Baixar
                   </Botao>
-                  {podeEnviar && (
-                    <Botao pequeno variante="fantasma" icone={<FileUp className="size-4" />} onClick={() => setVersaoDe(d)}>
-                      Nova versão
-                    </Botao>
+                  {pode.escrever && podeEnviar && (
+                    <>
+                      <Botao pequeno variante="fantasma" icone={<FileUp className="size-3.5" />} onClick={() => setVersaoDe(d)} title="Enviar nova versão">
+                        Nova versão
+                      </Botao>
+                      <Botao pequeno variante="fantasma" icone={<Pencil className="size-3.5" />} onClick={() => setEditarDoc(d)} title="Editar metadados" />
+                      <Botao pequeno variante="fantasma" icone={<Trash2 className="size-3.5 text-perigo" />} onClick={() => setExcluirDoc(d)} title="Excluir documento" />
+                    </>
                   )}
                 </div>
               </li>
@@ -87,6 +114,8 @@ export function DocumentosPainel({ vinculoTipo, vinculoId, titulo = 'Documentos'
           })}
         </ul>
       )}
+
+      {/* Modal: novo upload */}
       <UploadModal
         aberto={enviarAberto}
         aoFechar={() => setEnviarAberto(false)}
@@ -105,6 +134,8 @@ export function DocumentosPainel({ vinculoTipo, vinculoId, titulo = 'Documentos'
           toast.sucesso('Documento anexado');
         }}
       />
+
+      {/* Modal: nova versão */}
       <UploadModal
         aberto={!!versaoDe}
         aoFechar={() => setVersaoDe(null)}
@@ -118,7 +149,86 @@ export function DocumentosPainel({ vinculoTipo, vinculoId, titulo = 'Documentos'
           toast.sucesso('Nova versão registrada');
         }}
       />
+
+      {/* Modal: editar metadados */}
+      {editarDoc && (
+        <EditarDocumentoModal
+          doc={editarDoc}
+          aoFechar={() => setEditarDoc(null)}
+          aoSalvar={async (titulo, categoria) => {
+            await api.patch(`/documentos/${editarDoc.id}`, { titulo, categoria });
+            await q.refetch();
+            toast.sucesso('Documento atualizado');
+            setEditarDoc(null);
+          }}
+        />
+      )}
+
+      {/* Confirmação: excluir */}
+      <Confirmacao
+        aberto={!!excluirDoc}
+        aoFechar={() => setExcluirDoc(null)}
+        titulo="Excluir documento"
+        texto={<>Tem certeza que deseja excluir <strong>{excluirDoc?.titulo}</strong> e todas as suas versões? Esta ação não pode ser desfeita.</>}
+        rotuloConfirmar="Excluir"
+        perigo
+        carregando={excluir.isPending}
+        aoConfirmar={async () => {
+          if (!excluirDoc) return;
+          await excluir.mutateAsync(excluirDoc);
+          setExcluirDoc(null);
+        }}
+      />
     </div>
+  );
+}
+
+function EditarDocumentoModal({ doc, aoFechar, aoSalvar }: { doc: DocumentoLista; aoFechar: () => void; aoSalvar: (titulo: string, categoria: string) => Promise<void> }) {
+  const id = useId();
+  const [titulo, setTitulo] = useState(doc.titulo);
+  const [categoria, setCategoria] = useState(doc.categoria);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const salvar = async () => {
+    if (!titulo.trim()) return setErro('O título é obrigatório');
+    setEnviando(true);
+    setErro(null);
+    try {
+      await aoSalvar(titulo.trim(), categoria);
+    } catch (e) {
+      setErro(mensagemErro(e));
+    } finally {
+      setEnviando(false);
+    }
+  };
+  return (
+    <Modal
+      aberto
+      aoFechar={aoFechar}
+      titulo="Editar documento"
+      rodape={
+        <>
+          <Botao variante="secundario" onClick={aoFechar}>Cancelar</Botao>
+          <Botao onClick={salvar} carregando={enviando}>Salvar</Botao>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {erro && <Aviso tom="perigo">{erro}</Aviso>}
+        <div>
+          <label htmlFor={`${id}-tit`} className="mb-1 block text-sm font-medium">Título <span className="text-perigo">*</span></label>
+          <input id={`${id}-tit`} value={titulo} onChange={(e) => setTitulo(e.target.value)} maxLength={300} className="min-h-11 w-full rounded-lg border border-borda px-3 text-sm" />
+        </div>
+        <div>
+          <label htmlFor={`${id}-cat`} className="mb-1 block text-sm font-medium">Categoria</label>
+          <select id={`${id}-cat`} value={categoria} onChange={(e) => setCategoria(e.target.value)} className="min-h-11 w-full rounded-lg border border-borda bg-white px-3 text-sm">
+            {opcoes(CATEGORIAS_DOC).map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

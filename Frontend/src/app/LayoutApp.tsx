@@ -43,7 +43,7 @@ function Marca({ compacta }: { compacta?: boolean }) {
       <img src="/icone.svg" alt="" className="size-9 shrink-0" />
       {!compacta && (
         <span className="leading-tight">
-          <span className="block text-[0.95rem] font-bold tracking-wide text-tinta">AEROGEST GSD</span>
+          <span className="block text-sm font-bold tracking-wide text-tinta">AEROGEST GSD</span>
           <span className="block text-[0.7rem] text-tinta-suave">Gestão de Aquisições e Contratos</span>
         </span>
       )}
@@ -118,7 +118,7 @@ export function LayoutApp() {
       </a>
 
       {/* Sidebar desktop */}
-      <aside className={clsx('sticky top-0 hidden h-screen shrink-0 flex-col border-r border-borda bg-white lg:flex', recolhido ? 'w-[72px]' : 'w-64')}>
+      <aside className={clsx('sticky top-0 hidden h-screen shrink-0 flex-col border-r border-borda bg-white md:flex', recolhido ? 'w-[72px]' : 'w-60')}>
         <div className={clsx('flex h-16 items-center border-b border-borda', recolhido ? 'justify-center' : 'px-4')}>
           <Marca compacta={recolhido} />
         </div>
@@ -133,7 +133,7 @@ export function LayoutApp() {
 
       {/* Menu móvel */}
       {menuMovel && (
-        <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+        <div className="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true" aria-label="Menu">
           <div className="absolute inset-0 bg-tinta/40" onClick={() => setMenuMovel(false)} />
           <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-white shadow-xl">
             <div className="flex h-16 items-center justify-between border-b border-borda px-4">
@@ -150,10 +150,10 @@ export function LayoutApp() {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 border-b border-borda bg-white/95 backdrop-blur">
           <div className="flex h-16 items-center gap-2 px-3 sm:px-5">
-            <button onClick={() => setMenuMovel(true)} className="rounded-lg p-2 lg:hidden" aria-label="Abrir menu">
+            <button onClick={() => setMenuMovel(true)} className="rounded-lg p-2 md:hidden" aria-label="Abrir menu">
               <Menu className="size-5" />
             </button>
-            <form onSubmit={buscar} role="search" className="relative hidden max-w-md flex-1 sm:block">
+            <form onSubmit={buscar} role="search" className="relative hidden max-w-sm flex-1 sm:block">
               <label htmlFor="busca-global" className="sr-only">
                 Busca global
               </label>
@@ -197,7 +197,7 @@ export function LayoutApp() {
           </div>
         </header>
 
-        <main id="conteudo" className="mx-auto w-full max-w-[1400px] flex-1 px-3 py-4 sm:px-5 sm:py-5 lg:px-6">
+        <main id="conteudo" className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-5 sm:px-6">
           {me?.mfaObrigatorio && (
             <div className="mb-4">
               <Aviso tom="atencao" titulo="MFA obrigatório">
@@ -214,7 +214,7 @@ export function LayoutApp() {
           )}
           <Outlet />
         </main>
-        <footer className="border-t border-borda px-6 py-3 text-center text-[0.7rem] text-tinta-suave">
+        <footer className="border-t border-borda px-4 py-3 text-center text-[0.7rem] text-tinta-suave sm:px-6">
           AEROGEST GSD — ferramenta de apoio gerencial; não substitui atos e sistemas oficiais. Versão para homologação.
         </footer>
       </div>

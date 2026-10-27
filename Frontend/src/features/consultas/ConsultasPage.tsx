@@ -267,7 +267,7 @@ function BuscaCatalogo() {
     <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
       <div>
         <Cartao className="mb-4">
-          <form onSubmit={buscar} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
+          <form onSubmit={buscar} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
             <label className="text-xs font-medium text-tinta-suave">
               Catálogo
               <select value={f.tipo} onChange={(e) => setF({ ...f, tipo: e.target.value })} className="mt-1 min-h-11 w-full rounded-lg border border-borda bg-white px-3 text-sm text-tinta">
@@ -287,7 +287,11 @@ function BuscaCatalogo() {
               Código da classe
               <input value={f.codigoClasse} onChange={(e) => setF({ ...f, codigoClasse: e.target.value.replace(/\D/g, '') })} inputMode="numeric" className="mt-1 min-h-11 w-full rounded-lg border border-borda px-3 text-sm text-tinta" />
             </label>
-            <div className="sm:col-span-2 lg:col-span-4">
+            <label className="text-xs font-medium text-tinta-suave">
+              Código do grupo
+              <input value={f.codigoGrupo} onChange={(e) => setF({ ...f, codigoGrupo: e.target.value.replace(/\D/g, '') })} inputMode="numeric" className="mt-1 min-h-11 w-full rounded-lg border border-borda px-3 text-sm text-tinta" />
+            </label>
+            <div className="sm:col-span-2 lg:col-span-5">
               <Botao type="submit" icone={<Search className="size-4" />}>Consultar Compras.gov.br</Botao>
             </div>
           </form>

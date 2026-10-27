@@ -22,7 +22,7 @@ export function Tabela<T>({ dados, colunas, chave, linkPara, vazio, rotulo }: { 
   return (
     <>
       <div className="hidden overflow-x-auto md:block">
-        <table className="w-full text-left text-sm" aria-label={rotulo}>
+        <table className="min-w-full text-left text-sm" aria-label={rotulo}>
           <thead>
             <tr className="border-b border-borda text-xs uppercase tracking-wide text-tinta-suave">
               {colunas.map((c) => (
@@ -117,7 +117,7 @@ export function Abas<K extends string>({ abas, ativa, aoMudar }: { abas: Array<{
 }
 
 export function BarraFiltros({ children }: { children: ReactNode }) {
-  return <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end [&>*]:w-full [&>*]:sm:w-auto">{children}</div>;
+  return <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">{children}</div>;
 }
 
 export function FiltroTexto({ valor, aoMudar, rotulo = 'Buscar', placeholder }: { valor: string; aoMudar: (v: string) => void; rotulo?: string; placeholder?: string }) {

@@ -22,7 +22,7 @@ export const Botao = forwardRef<
       type={type}
       disabled={disabled || carregando}
       className={clsx(
-        'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:cursor-not-allowed',
+        'inline-flex shrink-0 items-center justify-center gap-2 rounded-lg font-medium transition-colors disabled:cursor-not-allowed',
         pequeno ? 'min-h-9 px-3 text-sm' : 'min-h-11 px-4 text-[0.95rem]',
         estilosBotao[variante],
         className,

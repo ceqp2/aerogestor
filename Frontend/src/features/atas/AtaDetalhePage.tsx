@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Pencil, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { DocumentosPainel } from '@/components/DocumentosPainel';
@@ -30,6 +30,7 @@ export default function AtaDetalhePage() {
   const [destinada, setDestinada] = useState<any>(null);
   const [autorizar, setAutorizar] = useState(false);
   const [vigencia, setVigencia] = useState(false);
+  const [editarAta, setEditarAta] = useState(false);
 
   if (q.isLoading) return <Carregando linhas={6} />;
   if (q.isError) return <ErroCarga erro={q.error} tentarNovamente={() => q.refetch()} />;
@@ -55,6 +56,11 @@ export default function AtaDetalhePage() {
               <Botao variante="secundario" onClick={() => setVigencia(true)}>
                 Alterar vigência
               </Botao>
+              {pode.admin && (
+                <Botao variante="fantasma" pequeno icone={<Pencil className="size-4" />} onClick={() => setEditarAta(true)}>
+                  Editar
+                </Botao>
+              )}
             </>
           )
         }
@@ -265,6 +271,27 @@ export default function AtaDetalhePage() {
         ]}
         aoEnviar={async (v) => {
           await api.post(`/atas/${id}/vigencia`, v);
+          await q.refetch();
+        }}
+      />
+      <FormularioModal
+        aberto={editarAta}
+        aoFechar={() => setEditarAta(false)}
+        titulo="Editar dados da ata"
+        aviso={<Aviso tom="atencao">Correção de registro. O estado anterior é preservado na auditoria.</Aviso>}
+        largo
+        campos={[
+          { nome: 'numero', rotulo: 'Número da ata', obrigatorio: true, meia: true },
+          { nome: 'orgaoGerenciador', rotulo: 'Órgão gerenciador', obrigatorio: true, meia: true },
+          { nome: 'cnpjGerenciador', rotulo: 'CNPJ gerenciador', meia: true },
+          { nome: 'uasg', rotulo: 'UASG', meia: true },
+          { nome: 'objeto', rotulo: 'Objeto', tipo: 'textarea', obrigatorio: true },
+          { nome: 'processoOrigem', rotulo: 'Processo de origem', meia: true },
+          { nome: 'motivo', rotulo: 'Motivo da alteração', tipo: 'textarea', obrigatorio: true, minimo: 10 },
+        ]}
+        valoresIniciais={{ numero: a.numero, orgaoGerenciador: a.orgaoGerenciador, cnpjGerenciador: a.cnpjGerenciador ?? '', uasg: a.uasg ?? '', objeto: a.objeto, processoOrigem: a.processoOrigem ?? '' }}
+        aoEnviar={async (v) => {
+          await api.patch(`/atas/${id}`, v);
           await q.refetch();
         }}
       />

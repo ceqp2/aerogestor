@@ -17,6 +17,7 @@
     "node": ">=20.19"
   },
   "dependencies": {
+    "@emailjs/browser": "^5.0.3",
     "@fullcalendar/core": "6.1.21",
     "@fullcalendar/daygrid": "6.1.21",
     "@fullcalendar/interaction": "6.1.21",

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Eye, EyeOff, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Carregando, ErroCarga, useToast, Vazio } from '@/components/feedback';
@@ -12,6 +12,22 @@ import { api, Paginado, qs } from '@/lib/api';
 import { data, dataHora } from '@/lib/formato';
 import { ETAPAS, FORMAS, PERFIS, rotulo } from '@/lib/rotulos';
 import { Perfil, useAuth } from '@/hooks/useAuth';
+import { enviarEmailAcesso } from '@/lib/emailjs';
+
+function CampoSenha({ id, label, value, onChange }: { id: string; label: string; value: string; onChange: (v: string) => void }) {
+  const [ver, setVer] = useState(false);
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1 block text-sm font-medium">{label} *</label>
+      <div className="relative">
+        <input id={id} type={ver ? 'text' : 'password'} autoComplete="new-password" className="min-h-11 w-full rounded-lg border border-borda px-3 pr-10" value={value} onChange={e => onChange(e.target.value)} />
+        <button type="button" className="absolute inset-y-0 right-2 flex items-center text-tinta-suave hover:text-tinta" onClick={() => setVer(v => !v)} tabIndex={-1} aria-label={ver ? 'Ocultar senha' : 'Mostrar senha'}>
+          {ver ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const PODE_GERIR: Record<Perfil, Perfil[]> = {
@@ -81,37 +97,31 @@ function NovoUsuarioModal({ aberto, aoFechar, perfisCriaveis, aoSalvar }: { aber
         {erro && <Aviso tom="perigo">{erro}</Aviso>}
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2">
-            <label className="mb-1 block text-sm font-medium">Nome completo *</label>
-            <input className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.nome} onChange={e => setCampos(p => ({ ...p, nome: e.target.value }))} />
+            <label htmlFor="nu-nome" className="mb-1 block text-sm font-medium">Nome completo *</label>
+            <input id="nu-nome" className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.nome} onChange={e => setCampos(p => ({ ...p, nome: e.target.value }))} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Nome de guerra *</label>
-            <input className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.nomeGuerra} onChange={e => setCampos(p => ({ ...p, nomeGuerra: e.target.value }))} />
+            <label htmlFor="nu-nguerra" className="mb-1 block text-sm font-medium">Nome de guerra *</label>
+            <input id="nu-nguerra" className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.nomeGuerra} onChange={e => setCampos(p => ({ ...p, nomeGuerra: e.target.value }))} />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Posto/graduação</label>
-            <input className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.postoGraduacao} onChange={e => setCampos(p => ({ ...p, postoGraduacao: e.target.value }))} />
+            <label htmlFor="nu-posto" className="mb-1 block text-sm font-medium">Posto/graduação</label>
+            <input id="nu-posto" className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.postoGraduacao} onChange={e => setCampos(p => ({ ...p, postoGraduacao: e.target.value }))} />
           </div>
           <div className="col-span-2">
-            <label className="mb-1 block text-sm font-medium">E-mail institucional *</label>
-            <input type="email" className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.email} onChange={e => setCampos(p => ({ ...p, email: e.target.value }))} />
+            <label htmlFor="nu-email" className="mb-1 block text-sm font-medium">E-mail institucional *</label>
+            <input id="nu-email" type="email" className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.email} onChange={e => setCampos(p => ({ ...p, email: e.target.value }))} />
           </div>
           <div className="col-span-2">
-            <label className="mb-1 block text-sm font-medium">Perfil *</label>
-            <select className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.perfil} onChange={e => setCampos(p => ({ ...p, perfil: e.target.value }))}>
+            <label htmlFor="nu-perfil" className="mb-1 block text-sm font-medium">Perfil *</label>
+            <select id="nu-perfil" className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.perfil} onChange={e => setCampos(p => ({ ...p, perfil: e.target.value }))}>
               {perfisCriaveis.map(p => <option key={p} value={p}>{PERFIS[p as keyof typeof PERFIS] ?? p}</option>)}
             </select>
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium">Senha temporária *</label>
-            <input type="password" autoComplete="new-password" className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.senha} onChange={e => setCampos(p => ({ ...p, senha: e.target.value }))} />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium">Confirmar senha *</label>
-            <input type="password" autoComplete="new-password" className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.confirmarSenha} onChange={e => setCampos(p => ({ ...p, confirmarSenha: e.target.value }))} />
-          </div>
+          <CampoSenha id="nu-senha" label="Senha temporária" value={campos.senha} onChange={v => setCampos(p => ({ ...p, senha: v }))} />
+          <CampoSenha id="nu-confirmar" label="Confirmar senha" value={campos.confirmarSenha} onChange={v => setCampos(p => ({ ...p, confirmarSenha: v }))} />
         </div>
-        <p className="text-xs text-tinta-suave">Política de senha: mínimo 12 caracteres com ao menos 3 entre maiúsculas, minúsculas, números e símbolos.</p>
+        <p className="text-xs text-tinta-suave">Política: mín. 12 caracteres com ao menos 3 de: maiúsculas, minúsculas, números e símbolos.</p>
       </form>
     </Modal>
   );
@@ -215,6 +225,16 @@ function Usuarios() {
           await api.post('/usuarios', v);
           await q.refetch();
           toast.sucesso('Usuário criado com sucesso');
+          try {
+            await enviarEmailAcesso({
+              nomeDestinatario: v.nomeGuerra ?? v.nome,
+              emailDestinatario: v.email,
+              senhaTemporaria: v.senha,
+              urlSistema: window.location.origin,
+            });
+          } catch {
+            toast.aviso?.('Usuário criado, mas o e-mail não pôde ser enviado. Informe a senha manualmente.');
+          }
         }}
       />
       <FormularioModal

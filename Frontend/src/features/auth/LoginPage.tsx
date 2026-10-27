@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
+import { Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
@@ -18,6 +19,7 @@ export default function LoginPage() {
   const loc = useLocation();
   const qc = useQueryClient();
   const [erro, setErro] = useState<string | null>(null);
+  const [verSenha, setVerSenha] = useState(false);
   const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema), defaultValues: { email: '', senha: '' } });
   const destino = (loc.state as { de?: string } | null)?.de ?? '/';
 
@@ -53,7 +55,12 @@ export default function LoginPage() {
           <label htmlFor="senha" className="mb-1 block text-sm font-medium">
             Senha
           </label>
-          <input id="senha" type="password" autoComplete="current-password" className="min-h-11 w-full rounded-lg border border-borda px-3" aria-invalid={!!e.senha} {...form.register('senha')} />
+          <div className="relative">
+            <input id="senha" type={verSenha ? 'text' : 'password'} autoComplete="current-password" className="min-h-11 w-full rounded-lg border border-borda px-3 pr-10" aria-invalid={!!e.senha} {...form.register('senha')} />
+            <button type="button" className="absolute inset-y-0 right-2 flex items-center text-tinta-suave hover:text-tinta" onClick={() => setVerSenha(v => !v)} tabIndex={-1} aria-label={verSenha ? 'Ocultar senha' : 'Mostrar senha'}>
+              {verSenha ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
+          </div>
           {e.senha && <p className="mt-1 text-xs text-perigo">{e.senha.message}</p>}
         </div>
         <Botao type="submit" className="w-full" carregando={form.formState.isSubmitting}>

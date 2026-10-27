@@ -30,9 +30,13 @@ export default function LoginPage() {
     try {
       const r = await api.post<{ mfaPendente: boolean; csrfToken?: string }>('/auth/login', v);
       if (r.csrfToken) definirCsrfToken(r.csrfToken);
+      if (r.mfaPendente) { navegar('/mfa', { replace: true }); return; }
       qc.removeQueries({ queryKey: ['me'] });
-      await recarregar();
-      navegar(r.mfaPendente ? '/mfa' : destino, { replace: true, state: { de: destino } });
+      const resultado = await recarregar();
+      const me = (resultado as { data?: import('@/hooks/useAuth').Me | null })?.data;
+      if (!me) { navegar('/login', { replace: true }); return; }
+      if (!me.unidadeAtual) { navegar('/selecionar-unidade', { replace: true }); return; }
+      navegar(destino, { replace: true });
     } catch (e) {
       setErro(mensagemErro(e));
       form.setValue('senha', '');

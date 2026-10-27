@@ -25,8 +25,14 @@ export default function SelecionarUnidadePage() {
     try {
       await api.post('/auth/unidade', { unidadeId: id });
       qc.clear();
-      await recarregar();
-      navegar('/', { replace: true });
+      const resultado = await recarregar();
+      const meAtual = (resultado as { data?: import('@/hooks/useAuth').Me | null })?.data;
+      if (meAtual?.unidadeAtual) {
+        navegar('/', { replace: true });
+      } else {
+        await new Promise(res => setTimeout(res, 300));
+        navegar('/', { replace: true });
+      }
     } catch (e) {
       setErro(mensagemErro(e));
       setEscolhendo(null);

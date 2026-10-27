@@ -145,6 +145,34 @@ export class UsuariosService {
     return { link: `${env().appOrigin[0]}/convite/${token}`, expiraEmHoras: CONVITE_HORAS };
   }
 
+  async editar(ctx: Ctx, usuarioId: string, dto: import('./usuarios.dto').EditarUsuarioDto) {
+    const v = await this.vinculoAlvo(ctx, usuarioId);
+    const u = v.usuario;
+    const antes: Record<string, unknown> = {};
+    const dados: Record<string, unknown> = {};
+    if (dto.nome !== undefined && dto.nome !== u.nome) { antes.nome = u.nome; dados.nome = dto.nome.trim(); }
+    if (dto.nomeGuerra !== undefined && dto.nomeGuerra !== u.nomeGuerra) { antes.nomeGuerra = u.nomeGuerra; dados.nomeGuerra = dto.nomeGuerra.trim() || null; }
+    if (dto.postoGraduacao !== undefined && dto.postoGraduacao !== u.postoGraduacao) { antes.postoGraduacao = u.postoGraduacao; dados.postoGraduacao = dto.postoGraduacao.trim() || null; }
+    if (dto.email !== undefined) {
+      const email = dto.email.trim().toLowerCase();
+      if (email !== u.email) {
+        const existe = await this.prisma.usuario.findUnique({ where: { email } });
+        if (existe && existe.id !== usuarioId) throw new BadRequestException('E-mail já em uso por outro usuário');
+        antes.email = u.email; dados.email = email;
+      }
+    }
+    if (dto.senha) {
+      const email = (dados.email as string | undefined) ?? u.email;
+      const nome = (dados.nome as string | undefined) ?? u.nome;
+      validarPoliticaSenha(dto.senha, email, nome);
+      dados.senhaHash = await hashSenha(dto.senha);
+    }
+    if (Object.keys(dados).length === 0) return { ok: true };
+    await this.prisma.usuario.update({ where: { id: usuarioId }, data: dados });
+    await this.auditoria.registrar(this.prisma, ctx, { acao: 'USUARIO_EDITADO', entidade: 'Usuario', entidadeId: usuarioId, antes, depois: dados });
+    return { ok: true };
+  }
+
   async desativar(ctx: Ctx, usuarioId: string, motivo: string) {
     const v = await this.vinculoAlvo(ctx, usuarioId);
     await this.prisma.$transaction(async (tx) => {

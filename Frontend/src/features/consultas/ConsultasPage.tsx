@@ -49,12 +49,30 @@ function AvisoFonte({ r }: { r: any }) {
   );
 }
 
+const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+const MODALIDADES_PNCP = [
+  { value: '', label: 'Todas as modalidades' },
+  { value: '1', label: 'Leilão - Eletrônico' },
+  { value: '2', label: 'Diálogo Competitivo' },
+  { value: '3', label: 'Concurso' },
+  { value: '4', label: 'Concorrência - Eletrônica' },
+  { value: '5', label: 'Concorrência - Presencial' },
+  { value: '6', label: 'Pregão - Eletrônico' },
+  { value: '7', label: 'Pregão - Presencial' },
+  { value: '8', label: 'Dispensa de Licitação' },
+  { value: '9', label: 'Inexigibilidade' },
+  { value: '10', label: 'Manifestação de Interesse' },
+  { value: '11', label: 'Pré-qualificação' },
+  { value: '12', label: 'Credenciamento' },
+  { value: '13', label: 'Leilão - Presencial' },
+];
+
 function BuscaPncp() {
   const { pode } = useAuth();
   const toast = useToast();
   const navegar = useNavigate();
   const hoje = hojeISO();
-  const [f, setF] = useState({ dataInicial: hoje.slice(0, 8) + '01', dataFinal: hoje, cnpj: '', textoLocal: '', pagina: 1 });
+  const [f, setF] = useState({ dataInicial: hoje.slice(0, 8) + '01', dataFinal: hoje, cnpj: '', uf: '', numeroAta: '', textoLocal: '', pagina: 1 });
   const [busca, setBusca] = useState<typeof f | null>(null);
   const q = useQuery({ queryKey: ['pncp', busca], queryFn: () => api.get<any>(`/integracoes/pncp/atas${qs({ ...busca!, tamanhoPagina: 20 })}`), enabled: !!busca, retry: false });
   const [previa, setPrevia] = useState<any>(null);
@@ -82,28 +100,39 @@ function BuscaPncp() {
   return (
     <>
       <Cartao className="mb-4">
-        <form onSubmit={buscar} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
+        <form onSubmit={buscar} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:items-end">
           <label className="text-xs font-medium text-tinta-suave">
-            Vigência a partir de
+            Vigência a partir de *
             <input type="date" required value={f.dataInicial} onChange={(e) => setF({ ...f, dataInicial: e.target.value })} className="mt-1 min-h-11 w-full rounded-lg border border-borda px-3 text-sm text-tinta" />
           </label>
           <label className="text-xs font-medium text-tinta-suave">
-            até
+            Vigência até *
             <input type="date" required value={f.dataFinal} onChange={(e) => setF({ ...f, dataFinal: e.target.value })} className="mt-1 min-h-11 w-full rounded-lg border border-borda px-3 text-sm text-tinta" />
           </label>
           <label className="text-xs font-medium text-tinta-suave">
-            CNPJ do órgão (opcional)
-            <input value={f.cnpj} onChange={(e) => setF({ ...f, cnpj: e.target.value })} inputMode="numeric" className="mt-1 min-h-11 w-full rounded-lg border border-borda px-3 text-sm text-tinta" />
+            UF do órgão
+            <select value={f.uf} onChange={(e) => setF({ ...f, uf: e.target.value })} className="mt-1 min-h-11 w-full rounded-lg border border-borda bg-white px-3 text-sm text-tinta">
+              <option value="">Todos os estados</option>
+              {UFS.map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
           </label>
           <label className="text-xs font-medium text-tinta-suave">
-            Texto (filtro local)
-            <input value={f.textoLocal} onChange={(e) => setF({ ...f, textoLocal: e.target.value })} className="mt-1 min-h-11 w-full rounded-lg border border-borda px-3 text-sm text-tinta" />
+            CNPJ do órgão
+            <input value={f.cnpj} onChange={(e) => setF({ ...f, cnpj: e.target.value })} inputMode="numeric" placeholder="Somente números" className="mt-1 min-h-11 w-full rounded-lg border border-borda px-3 text-sm text-tinta" />
           </label>
-          <Botao type="submit" icone={<Search className="size-4" />}>
-            Consultar PNCP
-          </Botao>
+          <label className="text-xs font-medium text-tinta-suave">
+            Número da ata
+            <input value={f.numeroAta} onChange={(e) => setF({ ...f, numeroAta: e.target.value })} placeholder="Ex: 001/2024" className="mt-1 min-h-11 w-full rounded-lg border border-borda px-3 text-sm text-tinta" />
+          </label>
+          <label className="text-xs font-medium text-tinta-suave">
+            Palavra-chave no objeto
+            <input value={f.textoLocal} onChange={(e) => setF({ ...f, textoLocal: e.target.value })} placeholder="Filtro local na página retornada" className="mt-1 min-h-11 w-full rounded-lg border border-borda px-3 text-sm text-tinta" />
+          </label>
+          <div className="sm:col-span-2 lg:col-span-3">
+            <Botao type="submit" icone={<Search className="size-4" />}>Consultar PNCP</Botao>
+          </div>
         </form>
-        <p className="mt-2 text-xs text-tinta-suave">API pública de consulta do PNCP (GET /v1/atas, por período de vigência). A API não informa itens, quantidades nem saldos; o texto filtra apenas a página retornada.</p>
+        <p className="mt-2 text-xs text-tinta-suave">Fonte: PNCP API pública (GET /v1/atas). UF e CNPJ filtram na API; número da ata e palavra-chave filtram localmente na página retornada. A API não expõe itens, quantidades nem saldos.</p>
       </Cartao>
       {busca && (
         <Cartao>
@@ -116,7 +145,11 @@ function BuscaPncp() {
               <AvisoFonte r={q.data} />
               <Tabela
                 rotulo="Atas no PNCP"
-                dados={q.data.itens}
+                dados={(q.data.itens as any[]).filter((a: any) => {
+                  if (busca?.numeroAta && !a.numeroAtaRegistroPreco?.toLowerCase().includes(busca.numeroAta.toLowerCase())) return false;
+                  if (busca?.textoLocal && !a.objetoContratacao?.toLowerCase().includes(busca.textoLocal.toLowerCase())) return false;
+                  return true;
+                })}
                 chave={(a: any) => a.numeroControlePNCPAta}
                 vazio={<Vazio titulo="Nenhuma ata nesta página" />}
                 colunas={[

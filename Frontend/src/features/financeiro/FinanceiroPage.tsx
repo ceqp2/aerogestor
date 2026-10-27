@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Download, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -8,6 +8,7 @@ import { Campo, FormularioModal } from '@/components/Formulario';
 import { Abas, Tabela } from '@/components/Tabela';
 import { Aviso, Botao, CabecalhoPagina, Cartao, Indicador, Selo } from '@/components/ui';
 import { api } from '@/lib/api';
+import { exportarXlsx } from '@/lib/exportar';
 import { data, dataHora, moeda } from '@/lib/formato';
 import { useAuth } from '@/hooks/useAuth';
 import { useExercicio } from '@/hooks/useExercicio';
@@ -46,16 +47,34 @@ export default function FinanceiroPage() {
         titulo="Financeiro"
         subtitulo={`Acompanhamento gerencial do exercício ${exercicio} — conciliável com as fontes oficiais; não emite atos no SIAFI.`}
         acoes={
-          pode.escrever && (
-            <>
-              <Botao variante="secundario" icone={<Plus className="size-4" />} onClick={() => setModal('credito')}>
-                Crédito
+          <>
+            {aba === 'empenhos' && empenhos.data?.length ? (
+              <Botao variante="secundario" pequeno icone={<Download className="size-4" />} onClick={() => exportarXlsx(
+                empenhos.data!.map((e: any) => ({
+                  'Número': e.numero,
+                  'Fornecedor': e.fornecedor?.razaoSocial ?? '',
+                  'Emissão': e.dataEmissao,
+                  'Empenhado líq.': e.saldos.empenhadoLiquido,
+                  'A liquidar': e.saldos.aLiquidar,
+                  'Liquidado a pagar': e.saldos.liquidadoAPagar,
+                  'Pago': e.saldos.pagoLiquido,
+                })),
+                'empenhos'
+              )}>
+                Exportar XLSX
               </Botao>
-              <Botao icone={<Plus className="size-4" />} onClick={() => setModal('empenho')}>
-                Empenho
-              </Botao>
-            </>
-          )
+            ) : null}
+            {pode.escrever && (
+              <>
+                <Botao variante="secundario" icone={<Plus className="size-4" />} onClick={() => setModal('credito')}>
+                  Crédito
+                </Botao>
+                <Botao icone={<Plus className="size-4" />} onClick={() => setModal('empenho')}>
+                  Empenho
+                </Botao>
+              </>
+            )}
+          </>
         }
       />
       <Abas

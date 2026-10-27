@@ -130,11 +130,83 @@ function NovoUsuarioModal({ aberto, aoFechar, perfisCriaveis, aoSalvar }: { aber
   );
 }
 
+function EditarUsuarioModal({ u, aoFechar, aoSalvar }: { u: any; aoFechar: () => void; aoSalvar: () => void }) {
+  const [campos, setCampos] = useState({ nome: u.nome ?? '', nomeGuerra: u.nomeGuerra ?? '', postoGraduacao: u.postoGraduacao ?? '', email: u.email ?? '', senha: '' });
+  const [verSenha, setVerSenha] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const toast = useToast();
+
+  const enviar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErro(null);
+    if (!campos.nome.trim()) return setErro('Nome completo é obrigatório');
+    if (!campos.email.trim()) return setErro('E-mail é obrigatório');
+    setEnviando(true);
+    try {
+      const payload: any = {
+        nome: campos.nome.trim(),
+        nomeGuerra: campos.nomeGuerra.trim() || undefined,
+        postoGraduacao: campos.postoGraduacao.trim() || undefined,
+        email: campos.email.trim(),
+      };
+      if (campos.senha) payload.senha = campos.senha;
+      await api.patch(`/usuarios/${u.id}`, payload);
+      toast.sucesso('Usuário atualizado com sucesso');
+      aoSalvar();
+      aoFechar();
+    } catch (ex: any) {
+      setErro(ex?.message ?? 'Erro ao salvar');
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <Modal aberto aoFechar={aoFechar} titulo={`Editar — ${u.nomeGuerra ?? u.nome}`} rodape={
+      <><Botao variante="secundario" onClick={aoFechar}>Cancelar</Botao><Botao type="submit" form="form-editar-usuario" carregando={enviando}>Salvar</Botao></>
+    }>
+      <form id="form-editar-usuario" onSubmit={enviar} noValidate className="space-y-3">
+        {erro && <Aviso tom="perigo">{erro}</Aviso>}
+        <div>
+          <label htmlFor="eu-nome" className="mb-1 block text-sm font-medium">Nome completo *</label>
+          <input id="eu-nome" className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.nome} onChange={e => setCampos(p => ({ ...p, nome: e.target.value }))} />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="eu-nguerra" className="mb-1 block text-sm font-medium">Nome de guerra</label>
+            <input id="eu-nguerra" className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.nomeGuerra} onChange={e => setCampos(p => ({ ...p, nomeGuerra: e.target.value }))} />
+          </div>
+          <div>
+            <label htmlFor="eu-posto" className="mb-1 block text-sm font-medium">Posto/graduação</label>
+            <input id="eu-posto" className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.postoGraduacao} onChange={e => setCampos(p => ({ ...p, postoGraduacao: e.target.value }))} />
+          </div>
+        </div>
+        <div>
+          <label htmlFor="eu-email" className="mb-1 block text-sm font-medium">E-mail institucional *</label>
+          <input id="eu-email" type="email" className="min-h-11 w-full rounded-lg border border-borda px-3" value={campos.email} onChange={e => setCampos(p => ({ ...p, email: e.target.value }))} />
+        </div>
+        <div>
+          <label htmlFor="eu-senha" className="mb-1 block text-sm font-medium">Nova senha <span className="text-tinta-suave font-normal">(deixe em branco para não alterar)</span></label>
+          <div className="relative">
+            <input id="eu-senha" type={verSenha ? 'text' : 'password'} autoComplete="new-password" className="min-h-11 w-full rounded-lg border border-borda px-3 pr-10" value={campos.senha} onChange={e => setCampos(p => ({ ...p, senha: e.target.value }))} />
+            <button type="button" className="absolute inset-y-0 right-2 flex items-center text-tinta-suave hover:text-tinta" onClick={() => setVerSenha(v => !v)} tabIndex={-1}>
+              {verSenha ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-tinta-suave">Mín. 12 caracteres com ao menos 3 de: maiúsculas, minúsculas, números e símbolos.</p>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 function Usuarios() {
   const { perfil, pode } = useAuth();
   const toast = useToast();
   const q = useQuery({ queryKey: ['usuarios'], queryFn: () => api.get<any[]>('/usuarios') });
   const [criar, setCriar] = useState(false);
+  const [editar, setEditar] = useState<any>(null);
   const [link, setLink] = useState<{ link: string; expiraEmHoras: number } | null>(null);
   const [acao, setAcao] = useState<{ tipo: 'desativar' | 'reativar' | 'mfa'; u: any } | null>(null);
   const [mudarPerfil, setMudarPerfil] = useState<any>(null);
@@ -187,8 +259,11 @@ function Usuarios() {
                   <div className="flex flex-wrap gap-1">
                     {u.vinculoAtivo ? (
                       <>
+                        <Botao pequeno variante="secundario" onClick={() => setEditar(u)}>
+                          Editar
+                        </Botao>
                         <Botao pequeno variante="secundario" onClick={() => executar(async () => setLink(await api.post(`/usuarios/${u.id}/link-acesso`)), 'Link gerado')}>
-                          Link de redefinição de senha
+                          Redefinir senha
                         </Botao>
                         <Botao pequeno variante="secundario" onClick={() => executar(() => api.post(`/usuarios/${u.id}/revogar-sessoes`), 'Sessões revogadas')}>
                           Revogar sessões
@@ -220,6 +295,7 @@ function Usuarios() {
           ]}
         />
       </Cartao>
+      {editar && <EditarUsuarioModal u={editar} aoFechar={() => setEditar(null)} aoSalvar={() => q.refetch()} />}
       <NovoUsuarioModal
         aberto={criar}
         aoFechar={() => setCriar(false)}

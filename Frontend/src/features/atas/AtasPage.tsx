@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Download, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Carregando, ErroCarga, Vazio } from '@/components/feedback';
@@ -8,6 +8,7 @@ import { BarraFiltros, FiltroSelect, FiltroTexto, Paginacao, Tabela } from '@/co
 import { Botao, CabecalhoPagina, Cartao, Selo } from '@/components/ui';
 import { api, Paginado, qs } from '@/lib/api';
 import { data } from '@/lib/formato';
+import { exportarXlsx } from '@/lib/exportar';
 import { opcoes, rotulo, TIPOS_VINCULO_ATA } from '@/lib/rotulos';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -67,16 +68,35 @@ export default function AtasPage() {
         titulo="Atas de registro de preços"
         subtitulo="Ata é instrumento próprio — não é contrato nem orçamento disponível. Importar uma ata não autoriza sua utilização."
         acoes={
-          pode.escrever && (
-            <>
-              <Link to="/consultas" className="inline-flex min-h-11 items-center rounded-lg border border-borda bg-white px-4 text-sm font-medium hover:bg-azul-claro-2">
-                Importar do PNCP
-              </Link>
-              <Botao icone={<Plus className="size-4" />} onClick={() => setCriar(true)}>
-                Cadastrar ata
+          <>
+            {q.data?.itens.length ? (
+              <Botao variante="secundario" pequeno icone={<Download className="size-4" />} onClick={() => exportarXlsx(
+                q.data!.itens.map(a => ({
+                  'Número': a.numero,
+                  'Órgão gerenciador': a.orgaoGerenciador,
+                  'Objeto': a.objeto,
+                  'Vínculo': rotulo(TIPOS_VINCULO_ATA, a.tipoVinculo),
+                  'Vigência início': a.vigenciaInicio,
+                  'Vigência fim': a.vigenciaFim,
+                  'Itens': a._count.itens,
+                  'Situação': a.cancelada ? 'Cancelada' : a.expirada ? 'Expirada' : 'Utilizável',
+                })),
+                'atas'
+              )}>
+                Exportar XLSX
               </Botao>
-            </>
-          )
+            ) : null}
+            {pode.escrever && (
+              <>
+                <Link to="/consultas" className="inline-flex min-h-11 items-center rounded-lg border border-borda bg-white px-4 text-sm font-medium hover:bg-azul-claro-2">
+                  Importar do PNCP
+                </Link>
+                <Botao icone={<Plus className="size-4" />} onClick={() => setCriar(true)}>
+                  Cadastrar ata
+                </Botao>
+              </>
+            )}
+          </>
         }
       />
       <BarraFiltros>

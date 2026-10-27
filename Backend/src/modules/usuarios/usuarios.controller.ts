@@ -1,7 +1,7 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { C, Ctx, LEITURA_UNIDADE, Perfis, SECRETARIA } from '../../common/contexto';
-import { AlterarPerfilDto, ConcessaoSuporteDto, CriarUsuarioDto, MotivoDto } from './usuarios.dto';
+import { AlterarPerfilDto, ConcessaoSuporteDto, CriarUsuarioDto, EditarUsuarioDto, MotivoDto } from './usuarios.dto';
 import { UsuariosService } from './usuarios.service';
 
 @ApiTags('usuarios')
@@ -25,6 +25,13 @@ export class UsuariosController {
   @Post()
   criar(@C() ctx: Ctx, @Body() dto: CriarUsuarioDto) {
     return this.s.criar(ctx, dto);
+  }
+
+  @Perfis(...SECRETARIA)
+  @Patch(':id')
+  @HttpCode(200)
+  editar(@C() ctx: Ctx, @Param('id', ParseUUIDPipe) id: string, @Body() dto: EditarUsuarioDto) {
+    return this.s.editar(ctx, id, dto);
   }
 
   @Perfis(...SECRETARIA)

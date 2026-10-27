@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Columns3, List, Plus } from 'lucide-react';
+import { Columns3, Download, List, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Carregando, ErroCarga, Vazio } from '@/components/feedback';
@@ -7,6 +7,7 @@ import { FormularioModal } from '@/components/Formulario';
 import { BarraFiltros, FiltroSelect, FiltroTexto, Paginacao, Tabela } from '@/components/Tabela';
 import { Botao, CabecalhoPagina, Cartao, Selo } from '@/components/ui';
 import { api, Paginado, qs } from '@/lib/api';
+import { exportarXlsx } from '@/lib/exportar';
 import { data, moeda } from '@/lib/formato';
 import { ETAPAS, FORMAS, HIPOTESES, MODALIDADES, opcoes, ORDEM_ETAPAS, rotulo, SITUACOES_PROCESSO } from '@/lib/rotulos';
 import { useAuth } from '@/hooks/useAuth';
@@ -92,6 +93,24 @@ export default function ProcessosPage() {
                 <Columns3 className="size-4" /> Kanban
               </button>
             </div>
+            {q.data?.itens.length ? (
+              <Botao variante="secundario" pequeno icone={<Download className="size-4" />} onClick={() => exportarXlsx(
+                q.data!.itens.map(p => ({
+                  'Número': p.numeroInterno,
+                  'NUP': p.nup ?? '',
+                  'Objeto': p.objeto,
+                  'Classificação': classificacao(p),
+                  'Etapa': rotulo(ETAPAS, p.etapa),
+                  'Situação': p.situacao,
+                  'Valor estimado': p.valorEstimado,
+                  'Conclusão prevista': p.dataConclusaoPrevista ?? '',
+                  'Responsável': p.responsavel?.nome ?? '',
+                })),
+                'processos'
+              )}>
+                Exportar XLSX
+              </Botao>
+            ) : null}
             {pode.escrever && (
               <Botao icone={<Plus className="size-4" />} onClick={() => setCriar(true)}>
                 Novo processo

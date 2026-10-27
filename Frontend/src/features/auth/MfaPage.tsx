@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { mensagemErro } from '@/components/feedback';
 import { Aviso, Botao } from '@/components/ui';
-import { api } from '@/lib/api';
+import { api, definirCsrfToken, definirSessionToken } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { TelaPublica } from './TelaPublica';
 
@@ -20,8 +20,12 @@ export default function MfaPage() {
     setEnviando(true);
     setErro(null);
     try {
-      await api.post('/auth/mfa/verificar', { codigo });
-      await recarregar();
+      const r = await api.post<{ ok: boolean; csrfToken?: string; sessionToken?: string }>('/auth/mfa/verificar', { codigo });
+      if (r.csrfToken) definirCsrfToken(r.csrfToken);
+      if (r.sessionToken) definirSessionToken(r.sessionToken);
+      const resultado = await recarregar();
+      const meAtual = (resultado as { data?: import('@/hooks/useAuth').Me | null })?.data;
+      if (!meAtual?.unidadeAtual) { navegar('/selecionar-unidade', { replace: true }); return; }
       navegar('/', { replace: true });
     } catch (err) {
       setErro(mensagemErro(err));

@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
-import { api, ApiError, definirCsrfToken, limparCsrfToken, registrarNaoAutenticado } from '@/lib/api';
+import { api, ApiError, definirCsrfToken, limparCsrfToken, limparSessionToken, registrarNaoAutenticado } from '@/lib/api';
 
 export type Perfil = 'COMANDANTE' | 'ADMIN' | 'CHEFE' | 'AUXILIAR' | 'GESTOR';
 
@@ -80,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sair: async () => {
         await api.post('/auth/logout').catch(() => undefined);
         limparCsrfToken();
+        limparSessionToken();
         qc.clear();
         qc.setQueryData(['me'], null);
         setSemSessao(true);

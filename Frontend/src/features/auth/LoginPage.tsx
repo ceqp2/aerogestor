@@ -7,7 +7,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { mensagemErro } from '@/components/feedback';
 import { Aviso, Botao } from '@/components/ui';
-import { api, definirCsrfToken } from '@/lib/api';
+import { api, definirCsrfToken, definirSessionToken } from '@/lib/api';
 import { useAuth } from '@/hooks/useAuth';
 import { TelaPublica } from './TelaPublica';
 
@@ -28,8 +28,9 @@ export default function LoginPage() {
   const enviar = form.handleSubmit(async (v) => {
     setErro(null);
     try {
-      const r = await api.post<{ mfaPendente: boolean; csrfToken?: string }>('/auth/login', v);
+      const r = await api.post<{ mfaPendente: boolean; csrfToken?: string; sessionToken?: string }>('/auth/login', v);
       if (r.csrfToken) definirCsrfToken(r.csrfToken);
+      if (r.sessionToken) definirSessionToken(r.sessionToken);
       if (r.mfaPendente) { navegar('/mfa', { replace: true }); return; }
       qc.removeQueries({ queryKey: ['me'] });
       const resultado = await recarregar();

@@ -1,8 +1,8 @@
 /**
- * Cliente HTTP. Sessão em cookie HttpOnly (nunca em localStorage);
- * requisições de escrita enviam o token CSRF armazenado em memória (recebido no login).
- * Em cross-origin o cookie aerogest_csrf não é acessível via document.cookie,
- * portanto o backend retorna csrfToken no corpo do login e o armazenamos aqui.
+ * Cliente HTTP. Sessão em cookie HttpOnly (navegadores desktop) OU
+ * Authorization: Bearer (mobile/Safari ITP que bloqueia cookies cross-origin).
+ * O sessionToken é persistido em sessionStorage como fallback ao cookie.
+ * Requisições de escrita sem Bearer enviam também o header CSRF (double-submit).
  */
 export class ApiError extends Error {
   constructor(
@@ -18,6 +18,10 @@ export class ApiError extends Error {
 const BASE = (import.meta.env.VITE_API_BASE_URL ?? '') + '/api/v1';
 
 let csrfToken: string | null = null;
+let sessionToken: string | null = null;
+
+// Persiste em sessionStorage para sobreviver reloads dentro da aba
+try { sessionToken = sessionStorage.getItem('_sid'); } catch { /* private mode */ }
 
 export function definirCsrfToken(token: string) {
   csrfToken = token;
@@ -25,6 +29,16 @@ export function definirCsrfToken(token: string) {
 
 export function limparCsrfToken() {
   csrfToken = null;
+}
+
+export function definirSessionToken(token: string) {
+  sessionToken = token;
+  try { sessionStorage.setItem('_sid', token); } catch { /* private mode */ }
+}
+
+export function limparSessionToken() {
+  sessionToken = null;
+  try { sessionStorage.removeItem('_sid'); } catch { /* private mode */ }
 }
 
 let aoNaoAutenticado: (() => void) | null = null;
@@ -36,7 +50,11 @@ type Metodo = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
 async function requisicao<T>(metodo: Metodo, caminho: string, corpo?: unknown, opcoes: { formData?: FormData; bruto?: boolean } = {}): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' };
-  if (metodo !== 'GET') {
+  if (sessionToken) {
+    headers['Authorization'] = `Bearer ${sessionToken}`;
+  }
+  if (metodo !== 'GET' && !sessionToken) {
+    // Só envia CSRF quando não há Bearer (bearer dispensa CSRF no backend)
     if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
   }
   let body: BodyInit | undefined;

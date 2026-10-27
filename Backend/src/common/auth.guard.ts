@@ -25,8 +25,10 @@ export class AuthGuard implements CanActivate {
     if (this.reflector.getAllAndOverride<boolean>(PUBLICO, alvo)) return true;
 
     const req = context.switchToHttp().getRequest<ReqAuth>();
-    const token: string | undefined = req.cookies?.[COOKIE_SESSAO];
-    if (!token || token.length > 200) throw new UnauthorizedException('Sessão ausente');
+    const cookieToken: string | undefined = req.cookies?.[COOKIE_SESSAO];
+    const bearerToken = (req.header('authorization') ?? '').replace(/^Bearer\s+/i, '').trim() || undefined;
+    const token = cookieToken || bearerToken;
+    if (!token || token.length > 500) throw new UnauthorizedException('Sessão ausente');
 
     const sessao = await this.prisma.sessao.findUnique({
       where: { tokenHash: hashToken(token) },
@@ -37,7 +39,9 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('Sessão inválida ou expirada');
     }
 
-    if (!METODOS_SEGUROS.has(req.method)) {
+    // CSRF só é verificado quando a sessão vem via cookie (cross-origin cookie attack).
+    // Quando o cliente usa Authorization: Bearer, o token já prova a identidade.
+    if (!METODOS_SEGUROS.has(req.method) && !bearerToken) {
       const csrf = req.header(HEADER_CSRF);
       if (!csrf || !igualSeguro(hashToken(csrf), sessao.csrfHash)) {
         throw new ForbiddenException('Token CSRF inválido');

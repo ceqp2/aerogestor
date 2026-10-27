@@ -40,11 +40,11 @@ export function Cartao({ children, className, titulo, acoes, id }: { children: R
     <section id={id} className={clsx('rounded-xl border border-borda bg-white shadow-cartao', className)} aria-label={typeof titulo === 'string' ? titulo : undefined}>
       {(titulo || acoes) && (
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-borda px-4 py-3">
-          {titulo && <h2 className="text-[0.95rem] font-semibold text-tinta">{titulo}</h2>}
-          {acoes && <div className="flex flex-wrap gap-2">{acoes}</div>}
+          {titulo && <h2 className="min-w-0 flex-1 text-[0.95rem] font-semibold text-tinta">{titulo}</h2>}
+          {acoes && <div className="flex flex-shrink-0 flex-wrap gap-2">{acoes}</div>}
         </header>
       )}
-      <div className="p-4">{children}</div>
+      <div className="p-3 sm:p-4">{children}</div>
     </section>
   );
 }
@@ -89,8 +89,8 @@ export function Aviso({ tom = 'info', titulo, children }: { tom?: Tom; titulo?: 
 
 export function CabecalhoPagina({ titulo, subtitulo, acoes, voltar }: { titulo: ReactNode; subtitulo?: ReactNode; acoes?: ReactNode; voltar?: { to: string; rotulo: string } }) {
   return (
-    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-      <div className="min-w-0">
+    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+      <div className="min-w-0 flex-1">
         {voltar && (
           <Link to={voltar.to} className="mb-1 inline-block text-sm text-acao hover:underline">
             ← {voltar.rotulo}
@@ -99,7 +99,7 @@ export function CabecalhoPagina({ titulo, subtitulo, acoes, voltar }: { titulo: 
         <h1 className="text-xl font-semibold text-tinta sm:text-2xl">{titulo}</h1>
         {subtitulo && <div className="mt-1 text-sm text-tinta-suave">{subtitulo}</div>}
       </div>
-      {acoes && <div className="flex flex-wrap gap-2">{acoes}</div>}
+      {acoes && <div className="flex flex-wrap items-center gap-2">{acoes}</div>}
     </div>
   );
 }
@@ -108,14 +108,14 @@ export function Indicador({ rotulo, valor, detalhe, to, tom, icone }: { rotulo: 
   const corpo = (
     <>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm text-tinta-suave">{rotulo}</span>
+        <span className="text-xs font-medium text-tinta-suave sm:text-sm">{rotulo}</span>
         {icone && <span className="text-acao" aria-hidden>{icone}</span>}
       </div>
-      <div className={clsx('tabular mt-1 text-2xl font-semibold', tom === 'perigo' ? 'text-perigo' : tom === 'atencao' ? 'text-atencao' : 'text-tinta')}>{valor}</div>
+      <div className={clsx('tabular mt-1 break-all text-xl font-semibold sm:text-2xl', tom === 'perigo' ? 'text-perigo' : tom === 'atencao' ? 'text-atencao' : 'text-tinta')}>{valor}</div>
       {detalhe && <div className="mt-1 text-xs text-tinta-suave">{detalhe}</div>}
     </>
   );
-  const cls = 'block rounded-xl border border-borda bg-white p-4 shadow-cartao';
+  const cls = 'block rounded-xl border border-borda bg-white p-3 shadow-cartao sm:p-4';
   return to ? (
     <Link to={to} className={clsx(cls, 'transition-colors hover:border-acao/40 hover:bg-azul-claro-2/40')}>
       {corpo}

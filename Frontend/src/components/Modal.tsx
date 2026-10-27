@@ -48,18 +48,18 @@ export function Modal({ aberto, aoFechar, titulo, children, rodape, largo }: { a
         role="dialog"
         aria-modal="true"
         aria-labelledby={tituloId}
-        className={`flex max-h-[92vh] w-full flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-2xl ${largo ? 'sm:max-w-3xl' : 'sm:max-w-lg'}`}
+        className={`flex max-h-[92dvh] w-full flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-2xl ${largo ? 'sm:max-w-3xl' : 'sm:max-w-lg'}`}
       >
-        <div className="flex items-center justify-between gap-3 border-b border-borda px-5 py-4">
-          <h2 id={tituloId} className="text-lg font-semibold text-tinta">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-borda px-4 py-3 sm:px-5 sm:py-4">
+          <h2 id={tituloId} className="text-base font-semibold text-tinta sm:text-lg">
             {titulo}
           </h2>
-          <button onClick={aoFechar} className="rounded-lg p-2 text-tinta-suave hover:bg-fundo" aria-label="Fechar">
+          <button onClick={aoFechar} className="shrink-0 rounded-lg p-2 text-tinta-suave hover:bg-fundo" aria-label="Fechar">
             <X className="size-5" />
           </button>
         </div>
-        <div className="overflow-y-auto px-5 py-4">{children}</div>
-        {rodape && <div className="flex flex-wrap justify-end gap-2 border-t border-borda px-5 py-3">{rodape}</div>}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">{children}</div>
+        {rodape && <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-borda px-4 py-3 sm:px-5">{rodape}</div>}
       </div>
     </div>,
     document.body,

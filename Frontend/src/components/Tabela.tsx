@@ -53,18 +53,18 @@ export function Tabela<T>({ dados, colunas, chave, linkPara, vazio, rotulo }: { 
         {dados.map((l) => (
           <li key={chave(l)} className="rounded-lg border border-borda bg-white p-3">
             <div className="mb-2 font-medium text-tinta">{principal.render(l)}</div>
-            <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
+            <dl className="grid grid-cols-1 gap-y-1.5 text-sm xs:grid-cols-2">
               {colunas
                 .filter((c) => c !== principal && !c.ocultarMobile)
                 .map((c) => (
                   <div key={c.titulo} className="min-w-0">
-                    <dt className="text-xs text-tinta-suave">{c.titulo}</dt>
+                    <dt className="text-[0.7rem] font-medium uppercase tracking-wide text-tinta-suave">{c.titulo}</dt>
                     <dd className="break-words">{c.render(l)}</dd>
                   </div>
                 ))}
             </dl>
             {linkPara && (
-              <button onClick={() => navegar(linkPara(l))} className="mt-2 min-h-10 w-full rounded-lg bg-azul-claro-2 text-sm font-medium text-acao">
+              <button onClick={() => navegar(linkPara(l))} className="mt-3 min-h-11 w-full rounded-lg bg-azul-claro-2 text-sm font-medium text-acao active:bg-azul-claro">
                 Abrir
               </button>
             )}
@@ -117,7 +117,7 @@ export function Abas<K extends string>({ abas, ativa, aoMudar }: { abas: Array<{
 }
 
 export function BarraFiltros({ children }: { children: ReactNode }) {
-  return <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">{children}</div>;
+  return <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end [&>*]:w-full [&>*]:sm:w-auto">{children}</div>;
 }
 
 export function FiltroTexto({ valor, aoMudar, rotulo = 'Buscar', placeholder }: { valor: string; aoMudar: (v: string) => void; rotulo?: string; placeholder?: string }) {
@@ -131,7 +131,7 @@ export function FiltroTexto({ valor, aoMudar, rotulo = 'Buscar', placeholder }: 
 
 export function FiltroSelect({ valor, aoMudar, rotulo, opcoes, todos = 'Todos' }: { valor: string; aoMudar: (v: string) => void; rotulo: string; opcoes: Array<{ value: string; label: string }>; todos?: string }) {
   return (
-    <label className="flex flex-col text-xs font-medium text-tinta-suave">
+    <label className="flex flex-col text-xs font-medium text-tinta-suave sm:min-w-[9rem]">
       {rotulo}
       <select value={valor} onChange={(e) => aoMudar(e.target.value)} className="mt-1 min-h-11 rounded-lg border border-borda bg-white px-3 text-sm text-tinta">
         <option value="">{todos}</option>

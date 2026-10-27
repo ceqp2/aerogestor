@@ -177,17 +177,17 @@ export function LayoutApp() {
               <label className="sr-only" htmlFor="exercicio">
                 Exercício
               </label>
-              <select id="exercicio" value={exercicio} onChange={(e) => setExercicio(Number(e.target.value))} className="h-10 rounded-lg border border-borda bg-white px-2 text-sm" title="Exercício">
+              <select id="exercicio" value={exercicio} onChange={(e) => setExercicio(Number(e.target.value))} className="h-9 rounded-lg border border-borda bg-white px-2 text-sm sm:h-10" title="Exercício">
                 {anos.map((a) => (
                   <option key={a} value={a}>
                     {a}
                   </option>
                 ))}
               </select>
-              <Link to="/notificacoes" className="relative rounded-lg p-2 hover:bg-fundo" aria-label={`Notificações: ${notif.data?.naoLidas ?? 0} não lidas`}>
+              <Link to="/notificacoes" className="relative rounded-lg p-1.5 hover:bg-fundo sm:p-2" aria-label={`Notificações: ${notif.data?.naoLidas ?? 0} não lidas`}>
                 <Bell className="size-5 text-tinta" />
                 {!!notif.data?.naoLidas && (
-                  <span className="absolute right-0.5 top-0.5 min-w-5 rounded-full bg-perigo px-1 text-center text-[0.65rem] font-bold leading-5 text-white">
+                  <span className="absolute right-0 top-0 min-w-5 rounded-full bg-perigo px-1 text-center text-[0.6rem] font-bold leading-5 text-white">
                     {notif.data.naoLidas > 99 ? '99+' : notif.data.naoLidas}
                   </span>
                 )}
@@ -197,7 +197,7 @@ export function LayoutApp() {
           </div>
         </header>
 
-        <main id="conteudo" className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-5 sm:px-6">
+        <main id="conteudo" className="mx-auto w-full max-w-[1400px] flex-1 px-3 py-4 sm:px-5 sm:py-5 lg:px-6">
           {me?.mfaObrigatorio && (
             <div className="mb-4">
               <Aviso tom="atencao" titulo="MFA obrigatório">

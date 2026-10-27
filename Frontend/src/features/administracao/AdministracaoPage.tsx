@@ -233,7 +233,7 @@ function Usuarios() {
               urlSistema: window.location.origin,
             });
           } catch {
-            toast.aviso?.('Usuário criado, mas o e-mail não pôde ser enviado. Informe a senha manualmente.');
+            toast.info('Usuário criado, mas o e-mail não pôde ser enviado. Informe a senha manualmente.');
           }
         }}
       />

@@ -15,9 +15,7 @@
     "allowImportingTsExtensions": false,
     "noEmit": true,
     "types": ["node", "vite/client", "vitest/globals", "@testing-library/jest-dom"],
-    "ignoreDeprecations": "5.0",
-    "baseUrl": ".",
-    "paths": { "@/*": ["src/*"] }
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src", "tests", "vite.config.ts"]
 }
